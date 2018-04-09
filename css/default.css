@@ -1,0 +1,40 @@
+body { align: left; background: lightgrey; font-family: Verdana, Arial, sans-serif; font-size: 11pt; font-style: normal; font-weight: normal;}
+li { background: white; font-family: Verdana, Arial,  sans-serif; font-size: 11pt; font-style: normal; font-weight: normal;}
+h1 { font-family: Verdana, Arial,  sans-serif; font-size: 20pt; font-style: bolder; font-weight: bolder; color: black; height:22pt;}
+h2 { font-family: Verdana, Arial,  sans-serif; font-size: 18pt; font-style: normal; font-weight: bold; color: black; }
+h3 { font-family: Verdana, Arial,  sans-serif; font-size: 14pt; font-style: normal; font-weight: bolder; color: black; }
+h4 { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: normal; font-weight: bold; color: black; }
+ol { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: normal; font-weight: normal; }
+ul { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: normal; font-weight: normal; }
+*.topictitle { font-family: Verdana, Arial,  sans-serif; font-size: 10pt; font-style: normal; font-weight: bold; color: blue; } 
+*.topicdescr { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: normal; font-weight: normal; }
+*.topicdetails { font-family: Verdana, Arial,  sans-serif; font-size: 10pt; font-style: italic; font-weight: normal; }
+*.details { font-family: Verdana, Arial,  sans-serif; font-size: 10pt; font-style: italic; font-weight: normal; }
+*.user { font-family: Verdana, Arial,  sans-serif; font-size: 10pt; font-style: italic; font-weight: bold; }
+*.copy { font-family: Verdana, Arial,  sans-serif; font-size: 10pt; font-style: normal; font-weight: normal; text-align: center; } 
+*.msgtitle { font-family: Verdana, Arial,  sans-serif; font-size: 11pt; font-style: normal; font-weight: bold; color: blue;} 
+*.msgtext { font-family: Verdana, Arial, sans-serif; font-size: 10pt; font-style: normal; font-weight: normal; }
+*.msgdetails { font-family: Verdana, Arial, sans-serif; font-size: 8pt; font-style: italic; font-weight: normal; }
+*.pagefooter { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: italic; font-weight: bold; background: lightgray; padding: 10pt; } 
+*.tableheader { font-family: Verdana, Arial, sans-serif; font-size: 20pt; font-style: bolder; font-weight: bold; background: orange; padding: 8pt; height: 25pt; } 
+*.bborder { border-bottom: medium solid; };
+*.closed { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: italic; font-weight: bold; background: red; padding: 10pt; } 
+*.sticky { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: italic; font-weight: bold; background: orange; padding: 10pt; } 
+*.moderated { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: italic; font-weight: bold; background: lightgray; padding: 10pt; } 
+*.normal { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: italic; font-weight: bold; background: white; padding: 10pt; } 
+*.pageheader { font-family: Verdana, Arial,  sans-serif; font-size: 12pt; font-style: italic; font-weight: bold; background: lightblue; padding: 10pt; } 
+*.attention { font-family: Verdana, Arial,  sans-serif; font-size: 10pt; font-style: italic; font-weight: normal; background: gold; padding: 0pt; } 
+*.link { font-style: underline; color: blue; }
+*.guests { font-style: normal; font-weight: bold; color: blue; font-size: 10pt; }
+*.list { font-style: normal; color: black; font-size: 10pt; }
+*.newcomment { font-family: Verdana, Arial, sans-serif; font-size: 10pt; font-style: italic; font-weight: normal; color: black; background: gold; text-decoration: underline; } 
+*.command { font-family: Verdana, Arial, sans-serif; font-size: 10pt; font-style: italic; font-weight: normal; color: black; background: gold; text-decoration: underline; } 
+*.currentcommand { font-family: Verdana, Arial, sans-serif; font-size: 10pt; font-style: normal; font-weight: bold; color: blue; background: orange; text-decoration: underline; } 
+*.title  { font-family: Verdana, Arial, sans-serif; font-size: 25pt; font-style: italic; font-weight: bold; color: white; background: blue; text-decoration: none; } 
+.navbar { font-family: Verdana, Arial, sans-serif; font-size: 10pt; font-style: normal; font-weight: bold; color: blue; background: white; text-decoration: none; } 
+*.warning { font-family: Verdana, Arial, sans-serif; font-size: 11pt; font-style: normal; font-weight: bold; color: red; background: black; text-decoration: none; } 
+*.doctitle { font-family: Verdana, Arial,  sans-serif; font-size: 11pt; font-style: normal; font-weight: bold; color: black;} 
+*.doctext { font-family: Verdana, Arial, sans-serif; font-size: 10pt; font-style: normal; font-weight: normal; float: right; padding: 5pt; width: 80%; border: solid; clear: none;}
+*.docdetails { font-family: Verdana, Arial, sans-serif; font-size: 8pt; font-style: italic; font-weight: normal; }
+*.sidebar { vertical-align: top; font-family: Verdana, Arial,  sans-serif; font-size: 10pt; font-style: normal; font-weight: normal; background: lightblue; padding: 0pt; margin: 0pt; border: none; } 
+*.tablebox { border: solid; font-family: Verdana, Arial, sans-serif; font-size: 20pt; font-style: bolder; font-weight: bold; background: orange; padding: 8pt; } 

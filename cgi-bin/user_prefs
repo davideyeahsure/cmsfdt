@@ -1,0 +1,123 @@
+# SpamAssassin user preferences file.  See 'perldoc Mail::SpamAssassin::Conf'
+# for details of what can be tweaked.
+###########################################################################
+
+# How many hits before a mail is considered spam.
+required_hits		5
+#rewrite_subject		0
+#use_terse_report	1
+
+# Add your own customised scores for some tests below.  The default scores are
+# read from the installed spamassassin rules files, but you can override them
+# here.  To see the list of tests and their default scores, go to
+# http://spamassassin.org/tests.html .
+
+score MISSING_HB_SEP 0
+score MISSING_HEADERS 0
+score NO_SUBJECT 0
+score MISSING_SUBJECT 0
+score SUBJECT_NEEDS_ENCODING 0
+score SUBJ_ILLEGAL_CHARS 0
+score TVD_SPACE_RATIO 0
+score MISSING_MID	0
+score NO_RECEIVED 0
+score FH_FROMEML_NOTLD 0
+score MISSING_DATE 0
+score NO_RELAYS 0
+score AWL 0
+score FU_HOODIA 8
+score PORN_URL_SEX		5
+score FROM_NO_USER		0
+score FROM_NO_LOWER 		0
+score SOMETHING_FOR_ADULTS	5
+score DOMAIN_4U2		99	
+score EXCUSE_16			5
+score EXCUSE_3			3
+score ORDER_NOW			5
+score REMOVE_PAGE 		5
+score SUSPICIOUS_RECIPS		0
+score MSGID_FROM_MTA_HEADER	0
+score DATE_IN_FUTURE_06_12	0
+score DATE_IN_PAST_06_12	0
+score DATE_IN_PAST_12_24	0
+score MICROSOFT_EXECUTABLE	5
+score NORMAL_HTTP_TO_IP 	3
+score CHINA_HEADER 		0
+score LIMITED_TIME_ONLY 	5
+score MIME_HTML_ONLY		3
+score MIME_HTML_NO_HTML_TAG	3
+score MIME_HTML_NO_CHARSET	3
+score HTML_IMAGE_ONLY		3
+score HTML_IMAGE_ONLY_12	3
+score HTML_MESSAGE		3
+score HTML_40_50		3
+score HTML_70_80		3
+score HTML_20_30		3
+score HTML_30_40		3
+score HTML_FONT_BIG		3
+score HTML_LINK_CLICK_CAPS	3
+score HTML_IMAGE_ONLY_02	3
+score HTML_IMAGE_ONLY_04	3
+score HTML_IMAGE_ONLY_06	5
+score HTML_TAG_EXISTS_TBODY 	3
+score MIME_40_50		3
+score MIME_50_60		3
+score MIME_MESAGE		3
+score HTML_MESAGE		3
+score HTML_RELAYING_FRAME 	5
+score STOCK_PICK		5
+score FROM_HAS_MIXED_NUMS	1
+score FOR_FREE			3
+score BIZ_TLD 			5
+score PENIS_ENLARGE		5
+score PENIS_ENLARGE2		5
+score LINES_OF_YELLING		2
+score NO_REAL_NAME		3
+score ONLINE_PHARMACY   	5
+score BAYES_00			0
+score BAYES_01			1
+score BAYES_10			2
+score BAYES_20			2
+score BAYES_30			2
+score BAYES_44			2
+score BAYES_50			2
+score BAYES_56			2
+score BAYES_60			3
+score BAYES_70			3
+score BAYES_80			4
+score BAYES_90			5
+score BAYES_99			5
+score US_DOLLARS_3	     	3
+score SAVE_UP_TO		3
+score SAVINGS			3
+score LIMITED_TIME_ONLY		3
+score LOSEBODYFAT		3
+score CLICK_BELOW		5
+score HTTP_WITH_EMAIL_IN_URL	5
+score MAILTO_TO_REMOVE 		3
+score HABEAS_SWE		5
+score PRIORITY_NO_NAME		5
+score MIME_BOUND_DD_DIGITS	5
+score UPPERCASE_25_50		2
+score SUBJ_ALL_CAPS		1
+
+score UPPERCASE_50_75		2
+score UPPERCASE_75_100		2
+
+header JUNK Subject=~/dzs|sdf|asd|Good site/i
+score JUNK 8
+
+body IDONTWANTYOURCRAP	/ia\+li\+s|dysfunct|check it out|now order|valiu|pproved|brand name|affordable low|less than|dieting|prescriptio|finance|website logo|the offer is|you were intereste|.* less than|our graduate|meds|recent rate|harmaceu|in stock|r[eplica|olex] wat|college.*degree|give free| r *a *t *e *s| P.L.S Microsoft Office|Weight Loss|armaci|promotion|we have everything|home loan|download.attach|awardspace|obesity|melatrol|fazol|bowtrol|rovillus|sadfsadghsdf|sdfd|thyro|hoodia|hydroxy|gordonii|expensive|new software|pay the low|money savi|income handl|profit potential|[Sc]ave [Uu]p-?to|custom logo|love this site|wordpress\.|paycashsite|Oxycontin|Bupropion|Celebrex|Zovirax|Hydroco|Lexa|Lasix|tamif|Ultrac|Exel|Cymba|Nexium|Clonazep|Glucop|Preva|prozac|effexor|loraze|tadalafil/i
+score IDONTWANTYOURCRAP	8
+
+body YEAHSURE /referred by a friend|you have received|you are a winner|educating yourself|earning|are eligible|i am bored|God in my life|cableonda|ibibo|lingerie|nude|naked|kaboo/i
+score YEAHSURE 5
+
+body ANOTHERPENISSIZE /sexual|sex |date-site|countless singles|inches plus|gay|penis|orgas|lesbic|viagra|daughter|hot single|pennis|shtory-prof\.ru|ibibo|naked|nude|lingerie| nude|tramadol| cialis |iisvzbeniykf|kqgjxloasrfx|qkwlykwdnldg|mfezkyoxviqs|Find out more about|acai berr|eiaculazion. precoc/i
+score ANOTHERPENISSIZE 5
+
+body OHYEAH /ibibo/i
+score OHYEAH 5
+
+body MOODLE /moodle|fxinyw|\[link=|\[url=|twitter\.com|\.at\.ua| joke for you| joke[?!.]|kamagra/i
+score MOODLE 5
