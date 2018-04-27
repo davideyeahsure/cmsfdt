@@ -129,7 +129,7 @@ foreach $pair (@pairs)
 	my ($name,$value)=split(/=/,$pair);
 	$FORM{$name}=$value;
 	if($debug) {
-		print "param: $name - $value\n";
+		print STDERR "param: $name - $value\n";
 	}
 }
 # did I overrode the language? (useful sometimes)
@@ -141,7 +141,7 @@ if( $FORM{'language'}) {
 if(!$FORM{'year'}) {
 	$FORM{'year'}=$year;
 	if($debug) {
-		print "year : $year\n";
+		print STDERR "year : $year\n";
 	}
 }
 
@@ -273,9 +273,8 @@ my $r=$dbh->prepare($q);
 $r->execute($document->{'hostid'},$document->{'groupid'},$document->{'documentid'});
 my ($maindocname)=$r->fetchrow_array();
 if($debug) {
-	print "Search links where doc=".$document->{'hostid'}.",".
-	$document->{'groupid'}.",".$document->{'documentid'}."\n";
-	print "Found $maindocname<p>\n";
+	print STDERR "Search links where doc=".$document->{'hostid'}.",". $document->{'groupid'}.",".$document->{'documentid'}."\n";
+	print STDERR "Found $maindocname<p>\n";
 }
 
 my $position="<a href='/'>[home]</a>";
@@ -318,9 +317,8 @@ sub processdoc
 	# I get some data related to the documet right now, so they can be used
 	# later
 	if($debug) {
-		print "Search for comments with doc=".$doc->{'hostid'}.",".
-		$doc->{'groupid'}.",".$doc->{'documentid'}."\n";
-						}
+		print STDERR "Search for comments with doc=".$doc->{'hostid'}.",". $doc->{'groupid'}.",".$doc->{'documentid'}."\n";
+	}
 	my $nc=searchforcomments($doc->{'hostid'},$doc->{'groupid'},$doc->{'documentid'});
 
 	# the icon need to contain the directory, otherwise it doesn't work...
@@ -330,25 +328,22 @@ sub processdoc
 	# list and I don't want to mix it up with the 'main' doc.
 	my $q='select link from links where hostid=? and groupid=? and documentid=?';
 	my $r=$dbh->prepare($q);
-	$r->execute($doc->{'hostid'},$doc->{'groupid'},
-		$doc->{'documentid'});
+	$r->execute($doc->{'hostid'},$doc->{'groupid'},$doc->{'documentid'});
 	my ($docname)=$r->fetchrow_array();
 	$docname="/".$docname;
 	if($debug) {
-		print "Search links where doc=".$doc->{'hostid'}.",".
-		$doc->{'groupid'}.",".$doc->{'documentid'}."\n";
-		print "Found $docname<p>\n";
+		print STDERR "Search links where doc=".$doc->{'hostid'}.",".$doc->{'groupid'}.",".$doc->{'documentid'}."\n";
+		print STDERR "Found document '".$docname."'\n";
 	}
 
 	# build a date with the correct formatting
 	my $docdate=convdate($doc->{'updated'});
 
 	if($debug) {
-		print "Processing $doc->{'title'}\n";
+		print STDERR "Processing document: '".$docname."'\n";
 	}
 
-	# If I have a template, start with the template, otherwise go for
-	# the real thing.
+	# If I have a template, start with the template, otherwise go for the real thing.
 	my @lines;
 	if($tpl) {
 		@lines = split( /\n/, $tpl->{'content'});
@@ -358,7 +353,6 @@ sub processdoc
 
 	my $line;
 	my $striphtml;
-
 
 	# process one line at a time
 	foreach $line (@lines) {
@@ -444,8 +438,11 @@ sub processdoc
 		# NOTE: I use here the 'main' document, to avoid problems with 
 		# includes and the like.
 		if( $line =~ /<!--prev-->/ ) {
-			my $prev=getprevious($document->{'hostid'},
-				$document->{'groupid'},$document->{'documentid'});
+			if( $debug ) {
+				print STDERR "Searching previous document\n";
+			}
+			
+			my $prev=getprevious($document->{'hostid'},$document->{'groupid'},$document->{'documentid'});
 			$line =~ s/<!--prev-->/$prev/;
 		}
 
@@ -453,8 +450,10 @@ sub processdoc
 		# NOTE: I use here the 'main' document, to avoid problems with 
 		# includes and the like.
 		if( $line =~ /<!--next-->/ ) {
-			my $next=getnext($document->{'hostid'},
-				$document->{'groupid'},$document->{'documentid'});
+			if( $debug ) {
+				print STDERR "Searching next document\n";
+			}
+			my $next=getnext($document->{'hostid'},$document->{'groupid'},$document->{'documentid'});
 			$line =~ s/<!--next-->/$next/;
 		}
 
@@ -464,6 +463,10 @@ sub processdoc
 			$inc=~s/.*<!--include=(.*)-->.*$/$1/;
 			$inc=include($inc);
 
+			if( $debug ) {
+				print STDERR "Including document '".$inc->{'title'}."'\n";
+			}
+		
 			# here we go.
 			processdoc($inc);
 			$print=0;
@@ -623,10 +626,9 @@ sub searchdoc() {
 
 	my ($hostid,$groupid,$documentid,$ignore)=@_;
 	my $r;
-
+	
 	if($debug) {
-		print "Searching for ".$hostid." - ".$groupid."/".$documentid.
-		" with ignore=".$ignore."<br>\n";
+		print STDERR "Searching for ".$hostid." - ".$groupid."/".$documentid. " with ignore=".$ignore."\n";
 	}
 
 	# Now, since I added the Links, is going to be easy: I just look up
@@ -660,7 +662,7 @@ sub searchdoc() {
 	$link=~s/^\///;
 	
 	if($debug) {
-		print "Query: $q , $hostid, $link, $userid <br>\n";
+		print STDERR "Query: $q , $hostid, $link, $userid\n";
 	}
 
 	if( ! $isroot && ! $ignore ) {
@@ -671,7 +673,7 @@ sub searchdoc() {
 	
 	if( $sth->rows == 0 ) {
 		if ($debug) {
-			print "No documents found...<br>\n";
+			print STDERR "No documents found.\n";
 		}
 		$sth->finish();
 		# no such document, get the default one for the group (if any)
@@ -781,7 +783,7 @@ sub searchdoc() {
 	$r=searchtherightone($sth);
 	$sth->finish();
 	if($debug) {
-		print "got doc $r->{'title'}\n";
+		print STDERR "got doc $r->{'title'}\n";
 	}
 	return $r;
 
@@ -795,7 +797,7 @@ sub loadtpl
 	my $t;
 
 	if($debug) {
-		print "Loading template $tpl\n";
+		print STDERR "Loading template $tpl\n";
 	}
 
 	# prepare a default template in any case..
@@ -811,12 +813,15 @@ sub loadtpl
 	my $sth=$dbh->prepare($q);
 	my $r=$sth->execute($host,$tpl);
 	if( ! $r ) {
-		print "Error searching for the template!\n";
+		print STDERR "Error searching for the template!\n";
 		$sth->finish();
 		return $t;
 	}
 	if ( $sth->rows == 0 ) {
 		# nope, template doesn't exists, get default
+		if( $debug ) {
+			print STDERR "Template not found, returning default.\n";
+		}
 		$sth->finish();
 		$sth->execute($host,$deftpl);
 	}
@@ -833,10 +838,15 @@ sub author()
 {
 	my $author=shift;
 
+	if( $debug ) {
+		print STDERR "Loading author information for $author.\n";
+	}
 	my $q="select * from userdesc where email=?";
 	my $sth=$dbh->prepare($q);
 	if( ! $sth->execute($author) ) {
-		print "Error searching for an author!\n";
+		if( $debug ) {
+			print STDERR "Error searching for an author!\n";
+		}
 		$sth->finish();
 		exit 0;
 	}
@@ -853,11 +863,13 @@ sub include
 	my $sth=$dbh->prepare($q);
 
 	if($debug) {
-		print "Searching for a fragment $include \n";
+		print STDERR "Searching for a fragment $include \n";
 	}
 
 	if( ! $sth->execute($host,$include) ) {
-		print "Error searching for the fragment!\n";
+		if( $debug ) {
+			print STDERR "Error searching for the fragment\n";
+		}
 		$sth->finish();
 		exit 0;
 	}
@@ -871,6 +883,10 @@ sub process
 {
 	my ($hostid,$group) = @_;
 	my $t;
+
+	if( $debug ) {
+		print STDERR "Processing a list with canned template for hostid=$hostid and group $group.\n";
+	}
 
 	# build a default template for the list
 	$t->{'templateid'}='extendedlist';
@@ -912,8 +928,8 @@ sub dolist
 	
 	# the template is loaded by the wrapper function.
 	if( $debug ) {
-		print "Going to process group $g ($group)<br>\n";
-		print "Tpl for dolist: ". $tpl->{'title'}."<br>\n";
+		print STDERR "Going to process group $g ($group)\n";
+		print STDERR "Tpl for dolist: ". $tpl->{'title'}."\n";
 	}
 
 	my $q=(q{
@@ -938,7 +954,7 @@ sub dolist
 
 	my $sth=$dbh->prepare($q);
 	if( $debug ) {
-		print "Query: $q<br>\n";
+		print STDERR "Query: $q\n";
 	}
 	if( ! $isroot && ! $ignore ) {
 		$sth->execute($hostid,$g,$userid);
@@ -946,7 +962,7 @@ sub dolist
 		$sth->execute($hostid,$g);
 	}
 	if( ! $sth ) {
-		print "Error listing documents!\n";
+		print STDERR "Error listing documents!\n";
 		$sth->finish();
 		return;
 	}
@@ -954,11 +970,10 @@ sub dolist
 	if( $sth->rows > 0 ) {
 
 		if( $debug ) {
-			print "Found ".$sth->rows." documents.<br>\n";
+			print STDERR "Found ".$sth->rows." documents.\n";
 		}
 
-		# Ok, we've got documents, for each one, search the one in the
-		# right language
+		# Ok, we've got documents, for each one, search the one in the right language
 		my $did;
 		while( my $r=$sth->fetchrow_hashref() ) {
 
@@ -990,7 +1005,7 @@ sub dolist
 	} else {
 
 		if( $debug ) {
-			print "no documents found!\n";
+			print STDERR "no documents found!\n";
 		}	
 		print getatext('nothinghere','nothing here');
 	}
@@ -1073,7 +1088,7 @@ sub guests
 	$q.=" order by u.name,d.updated,dc.title,dc.language desc";
 
 	if($debug) {
-		print "Query: ".$q." - ".$group.",".$userid."<br>\n";
+		print STDERR "Query: ".$q." - ".$group.",".$userid."\n";
 	}
 
 	my $sth=$dbh->prepare($q);
@@ -1092,7 +1107,7 @@ sub guests
 	if( $sth->rows > 0 ) {
 
 		if($debug) {
-			print "Found ".$sth->rows." rows<br>\n";
+			print STDERR "Found ".$sth->rows." rows\n";
 		}
 
 		# Ok, we've got documents, for each one, search the one in the right language
@@ -1106,7 +1121,7 @@ sub guests
 			$did=$r->{'documentid'};
 
 			if( $debug ) {
-				print "Processing $r->{'author'}, $r->{'groupid'}, $r->{'documentid'}, $r->{'title'}<br>\n";
+				print STDERR "Processing $r->{'author'}, $r->{'groupid'}, $r->{'documentid'}, $r->{'title'}\n";
 			}
 
 			my $q=(q{
@@ -1124,7 +1139,7 @@ sub guests
 				$q.=" and (dc.approved=true or author=?)";
 			}
 			if( $debug ) {
-				print $q."<br>\n";
+				print STDERR $q."\n";
 			}
 			my $s=$dbh->prepare($q);
 			if( ! $ignore && ! $isroot ) {
@@ -1139,13 +1154,13 @@ sub guests
 				my $r=searchtherightone($s);
 
 				if( $debug ) {
-					print "Current author: $author, new author: $r->{'author'}<br>\n";
+					print STDERR "Current author: $author, new author: $r->{'author'}\n";
 				}
 				# print author if break
 				if( $author ne $r->{'author'} ) {
 
 					if($debug) {
-						print "Break on author ".$author."<br>\n";
+						print STDERR "Break on author ".$author."\n";
 					}
 
 					$author=$r->{'author'};
@@ -1159,7 +1174,7 @@ sub guests
 				processdoc($r,$t);
 			} else {
 				if( $debug ) {
-					print "Can't search a language!<br>\n";
+					print STDERR "Can't search a language!\n";
 				}
 			}
 		}
@@ -1179,8 +1194,7 @@ sub journal
 	my $g=getgroupidfrompath($hostid,$group,$dbh);
 	
 	if( $debug ) {
-		print "Searching for a journal named '".$group.
-		"' to print with a tpl $tpl limit $l.<br>\n";
+		print STDERR "Searching for a journal named '".$group. "' to print with a tpl $tpl limit $l.\n";
 	}
 
 	# load the template or get the default one
@@ -1188,7 +1202,7 @@ sub journal
 		$t=loadtpl($tpl);
 	} else {
 		if($debug) {
-			print "Building a default template.<br>\n";
+			print STDERR "Building a default template.\n";
 		}
 		# build a default template for the list
 		$t->{'templateid'}='defaultjournal';
@@ -1247,7 +1261,7 @@ sub journal
 	if( $sth->rows > 0 ) {
 
 		if($debug) {
-			print "Found ".$sth->rows ." rows.<br>\n";
+			print STDERR "Found ".$sth->rows ." rows.\n";
 		}
 
 		my $count=0;
@@ -1270,7 +1284,7 @@ sub journal
 			}
 			$q.=" order by language, updated desc";
 			if( $debug ) {
-				print "Query: ".$q."<br>\n";
+				print STDERR "Query: ".$q."\n";
 			}
 			my $s=$dbh->prepare($q);
 			if( ! $ignore && ! $isroot ) {
@@ -1304,8 +1318,7 @@ sub getnext
 	my $text='';
 
 	if($debug) {
-		print "Searching for the next document of ".
-			$hostid."-".$groupid."/".$docid."<br>\n";
+		print STDERR "Searching for the next document of ".  $hostid."-".$groupid."/".$docid."\n";
 	}
 
 	my $q=(q{
@@ -1336,7 +1349,7 @@ sub getnext
 		my $defr;
 		my $r=$sth->fetchrow_hashref();
 		if($debug) {
-			print "Found ".$sth->{'link'}."<br>\n";
+			print STDERR "Found ".$sth->{'link'}."\n";
 		}
 		
 		# good, now get the link
@@ -1357,7 +1370,7 @@ sub getprevious
 	my $text="";
 
 	if($debug) {
-		print "Searching previous document for ".$groupid."/".$docid."\n";
+		print STDERR "Searching previous document for ".$groupid."/".$docid."\n";
 	}
 
 	my $q=(q{
@@ -1384,7 +1397,7 @@ sub getprevious
 		exit 0;
 	}
 	if($debug) {
-		print "found ".$sth->rows." docs\n";
+		print STDERR "found ".$sth->rows." docs\n";
 	}
 
 	if( $sth->rows > 0 ) {
@@ -1406,7 +1419,7 @@ sub showcomments
 	my ($hostid,$groupid,$docid,$tpl,$limit)=@_;
 
 	if($debug) {
-		print "Searching comments for ".$hostid."-".$groupid."/".$docid." with template $tpl\n";
+		print STDERR "Searching comments for ".$hostid."-".$groupid."/".$docid." with template $tpl\n";
 	}
 
 	# get the template or build a default one
@@ -1491,7 +1504,7 @@ sub scancommentbyparentid
 	my ($pid,$hostid,$groupid,$documentid)=@_;
 
 	if($debug) {
-		print "Scanning comments with pid=".$pid."<br>\n";
+		print STDERR "Scanning comments with pid=".$pid."\n";
 	}
 
 	# search for all the comments with this parentid
@@ -1538,7 +1551,7 @@ sub showasinglecomment
 	my ($c)=@_;
 
 	if($debug) {
-		print "Showing comment ".$c->{'commentid'}." ".$c->{'parentid'}."<br>\n";
+		print STDERR "Showing comment ".$c->{'commentid'}." ".$c->{'parentid'}."\n";
 	}
 
 	# width and height of the edit window
@@ -1610,7 +1623,7 @@ sub thereisasection {
 	my $q='select count(*) as cont from documents where hostid=? and groupid=?';
 
 	if($debug) {
-		print "Searching for a section named ".$s."\n";
+		print STDERR "Searching for a section named ".$s."\n";
 	}
 
 	my $sth=$dbh->prepare($q);
@@ -1665,7 +1678,7 @@ sub searchimage
 	my $x='image '.$imgid.' not found';
 
 	if( $debug ) {
-		print "Searching image '".$imgid."' with param ".$param."<br>\n";
+		print STDERR "Searching image '".$imgid."' with param ".$param."\n";
 	}
 
 	my $sth=$dbh->prepare($q);
@@ -1673,7 +1686,7 @@ sub searchimage
 	if( $sth->rows > 0 ) {
 		my $r=$sth->fetchrow_hashref();
 		if( $debug ) {
-			print "found '".$r->{'filename'}."'<br>\n";
+			print STDERR "Found '".$r->{'filename'}."'\n";
 		}
 		$x='';
 		if( $link ) {
@@ -1689,7 +1702,7 @@ sub searchimage
 	}
 	$sth->finish();
 	if( $debug ) {
-		print "returning '".$x."'<br>\n";
+		print STDERR "Returning '".$x."'\n";
 	}
 	return $x;
 }
@@ -1702,8 +1715,8 @@ sub searchvideo
 	my $x='video '.$vidid.' not found';
 
 	if( $debug ) {
-		print "Searching video '".$host."-".$vidid."' <br>\n";
-		print $q."<br>\n";
+		print STDERR "Searching video '".$host."-".$vidid."'\n";
+		print STDERR $q."\n";
 	}
 
 	my $sth=$dbh->prepare($q);
@@ -1713,7 +1726,7 @@ sub searchvideo
 
 		my $r=$sth->fetchrow_hashref();
 		if( $debug ) {
-			print "found '".$r->{'filename'}."'<br>\n";
+			print STDERR "found '".$r->{'filename'}."'\n";
 		}
 
 		$x="<a style='display:block;width:520px;height:330px;' id='player'> </a>\n";
@@ -1740,7 +1753,7 @@ sub searchvideo
 	}
 	$sth->finish();
 	if( $debug ) {
-		print "returning '".$x."'<br>\n";
+		print STDERR "Returning '".$x."'\n";
 	}
 	return $x;
 }
@@ -1754,14 +1767,14 @@ sub getatext
 	my $x;
 
 	if( $debug ) {
-		print "Searching default text for '".$textid."'\n";
+		print STDERR "Searching default text for '".$textid."'\n";
 	}
 
 	my $sth=$dbh->prepare($q);
 	$sth->execute($host,$textid);
 	if( $sth->rows > 0 ) {
 		if( $debug ) {
-			print "Searching for the right one '".$textid."'\n";
+			print STDERR "Searching for the right one '".$textid."'\n";
 		}	
 
 		my $r=searchtherightone($sth);
@@ -1774,8 +1787,7 @@ sub getatext
 }
 
 # Search into a dataset of documents with language, the one that matches
-# the preferred language of the user. Otherwise, it returns the
-# default one.
+# the preferred language of the user. Otherwise, it returns the default one.
 sub searchtherightone
 {
 	my $sth=shift;
@@ -1789,8 +1801,7 @@ sub searchtherightone
 	if( $r->{$deflang} ) {
 		$x=$r->{$deflang};
 	} else {
-		# no default language available for this... thing. Get the
-		# one that exists.
+		# no default language available for this... thing. Get the one that exists.
 		foreach my $key ($r) {
 			for my $id ( keys %{$key} ) {
 				$x=$r->{$id};
@@ -1803,7 +1814,7 @@ sub searchtherightone
 		if( $r->{$l}->{'language'} ) {
 			# found a match!
 			if($debug) {
-				print "Found right language $l for $r->{$l}->{'title'}<br>\n";
+				print STDERR "Found right language '".$l."' for the document '".$r->{$l}->{'title'}."'\n";
 			}
 			$x=$r->{$l};
 			return $x;
@@ -1812,7 +1823,7 @@ sub searchtherightone
 
 	# return the default or the 'first one'
 	if($debug) {
-		print "Returning $x->{'language'} for $x->{'title'}<br>\n";
+		print STDERR "Returning default language for $x->{'title'}\n";
 	}
 	$sth->finish();
 	return $x;
@@ -1834,7 +1845,7 @@ sub searchforcomments
 	my ($hostid,$groupid,$documentid) = @_;
 	my $rt="";
 	if($debug) {
-		print "Searching for comments for $hostid,$groupid/$documentid.\n";
+		print STDERR "Searching for comments for $hostid,$groupid/$documentid.\n";
 	}
 	my $q='select count(*) from comments where hostid=? and groupid=? and documentid=?';
 	if($ignore==0) {
@@ -1844,7 +1855,7 @@ sub searchforcomments
 	$r->execute($hostid,$groupid,$documentid);
 	my ($s)=$r->fetchrow_array();
 	if($debug) {
-		print "found $s comments.\n";
+		print STDERR "Found $s comments.\n";
 	}
 	$r->finish();
 	if($s == 0) {
@@ -1870,7 +1881,7 @@ sub showlogin
 	if( $userid ne 'NONE' ) {
 	
 		if($debug) {
-			print "Logout...\n";
+			print STDERR "Logout...\n";
 		}
 
 		# we are definitively logged in...
@@ -1879,7 +1890,7 @@ sub showlogin
 		if( $login->{'content'} eq '' ) {
 		
 			if($debug) {
-				print "Building a default frag...\n";
+				print STDERR "Building a default frag...\n";
 			}
 
 			# build a default fragment
@@ -1894,13 +1905,13 @@ sub showlogin
 		}
 	} else {
 		if($debug) {
-			print "Login...\n";
+			print STDERR "Login...\n";
 		}
 		$login=include('login');
 		$loginscript=getconfparam('login',$dbh);
 		if( $login->{'content'} eq '' ) {
 			if($debug) {
-				print "Building a default frag...\n";
+				print STDERR "Building a default frag...\n";
 			}
 			# build a default fragment
 			$login->{'fragid'}='defaultlogin';
@@ -1939,7 +1950,7 @@ sub showdocicon
 	my $ret;
 
 	if( $debug ) {
-		print "showing icon $icon with specials $special<br>\n";
+		print STDERR "Showing icon '".$icon."' with specials '".$special."'\n";
 	}
 
 	$icon=~s/^\///;
@@ -2012,7 +2023,7 @@ sub searches
 	}
 
 	if( $debug ) {
-		print "Doing search with template '".$tpl."'<br>\n";
+		print STDERR "Doing search with template '".$tpl."'\n";
 	}
 
 	if( $tpl ) {

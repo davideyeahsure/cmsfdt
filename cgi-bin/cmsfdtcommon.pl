@@ -304,6 +304,7 @@ sub upduser
 {
 	my ($email,$dbh)=@_;
 	my $query=CGI->new;
+	my $debug=getconfparam('debug',$dbh);
 
 	# make up random signature
 	my $chkuser=$query->remote_host . time2str('%r',time);
@@ -317,9 +318,8 @@ sub upduser
 	$sth->finish();
 
 	#debug
-	my $debug=0;
 	if( $debug ) {
-		print "<p>Desc: $desc, Last: $last, check: $chkuser<br>\n";
+		print STDERR "Desc: $desc, Last: $last, check: $chkuser\n";
 	}
 
 	# now update the user
@@ -1076,7 +1076,7 @@ sub getgroupidfrompath
 	my $r;
 
 	if($debug) {
-		print "Searching for $path<br>\n";
+		print STDERR "Searching for $path\n";
 	}
 	
 	# scan the path and search for the groups in sequence
@@ -1087,7 +1087,7 @@ sub getgroupidfrompath
 	foreach my $group (@groups) {
 
 		if( $debug ) {
-			print "searching for group $group in parent $nextid<br>\n";
+			print STDERR "searching for group $group in parent $nextid\n";
 		}
 			
 		# search the first one
@@ -1097,11 +1097,11 @@ sub getgroupidfrompath
 		if( $r->rows == 1 ) {
 			($nextid)=$r->fetchrow_array();
 			if ($debug) {
-				print "-found one group: $nextid<br>\n";
+				print STDERR "-found one group: $nextid\n";
 			}
 		} else {
 			if ($debug) {
-				print "found group $nextid<br>\n";
+				print STDERR "found group $nextid\n";
 			}
 			return $nextid;
 		}
@@ -1118,7 +1118,7 @@ sub getpathfromgroupid
 	my $name;
 
 	if($debug) {
-		print "Searching for $groupid<br>\n";
+		print STDERR "Searching for $groupid\n";
 	}
 
 	while($groupid > 0 ) {
