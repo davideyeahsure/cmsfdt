@@ -5868,6 +5868,7 @@ sub doeditdocument
 	my $title=$query->param('title');
 	my $content='';
 	my $oldlang=$query->param('oldlanguage');
+	my $published;
 
 	# zap the path from the icon's name
 	$icon=~s/.*\///;
@@ -5937,9 +5938,13 @@ sub doeditdocument
 				$q="insert into documents ".
 				"(hostid, groupid, documentid, template, cssid,".
 				"icon, rssid, author, moderator, moderated, comments,".
-				"isdefault, is404, display, created, updated ) values".
-				"(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-	
+				"isdefault, is404, display, created, updated, published ) values".
+				"(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+				# if the document is approved, I also update the published date, otherwise I set it to NULL
+				if( $query->param('approved') eq 'yes') {
+					$published=$today;
+				}
 				my $r=$dbh->prepare($q);
 				if( ! $r->execute(
 					$hostid,
@@ -5957,7 +5962,8 @@ sub doeditdocument
 					$query->param('is404'),
 					$query->param('display'),
 					'now()',
-					'now()') ) {
+					'now()',
+					$published) ) {
 					$msg=$dbh->errstr;
 					return $msg;
 				}
@@ -6050,8 +6056,15 @@ sub doeditdocument
 		"template=?, cssid=?, icon=?, rssid=?, ".
 		"author=?, moderator=?, moderated=?, comments=?, ".
 		"isdefault=?, is404=?, display=?";
+		# update date
 		if( $query->param('upd') ) {
 			$q.=",updated=now() ";
+		}
+		# update published date
+		if( $query->param('approved') eq 'yes') {
+			$q.=",published=now() ";
+		} else {
+			$q.=",published=NULL ";
 		}
 		$q.="where hostid=? and groupid=? and documentid=? ";
 
@@ -6379,10 +6392,9 @@ sub toggleapprove
 	# toggle
 	if( $current eq 'documents' ) {
 
-		my $q1;
-		my $q2;
-		$q1='select approved from documentscontent where hostid=? and groupid=? and documentid=?';
-		$q2='update documentscontent set approved=? where hostid=? and groupid=? and documentid=?';
+		my $q1='select approved from documentscontent where hostid=? and groupid=? and documentid=?';
+		my $q2='update documentscontent set approved=? where hostid=? and groupid=? and documentid=?';
+		my $q3='update documents set published=now() where hostid=? and groupid=? and documentid=?';
 		if( ! checkuserrights('group',$hostid,$groupid ) ) {
 			$q1.=" and author='".$userid."'";
 			$q2.=" and author='".$userid."'";
@@ -6393,13 +6405,21 @@ sub toggleapprove
 		my $r=$dbh->prepare( $q1 );
 		$r->execute($hostid,$groupid,$documentid);
 		my ($i)=$r->fetchrow_array();
+		my $d='null';
 		if( $i ) {
 			$i=0;
+			$q3='update documents set published=NULL where hostid=? and groupid=? and documentid=?';
 		} else {
 			$i=1;
 		}
 		$r=$dbh->prepare( $q2 );
+		if( $debug ) {
+			print "updating $hostid $groupid $documentid with $i<br>\n";
+		}
 		$r->execute($i,$hostid,$groupid,$documentid);
+		# update publication date with today or nothing, depending if I want to publish or un-publish
+		$r=$dbh->prepare( $q3 );
+		$r->execute($hostid,$groupid,$documentid);
 
 	} elsif( $current eq 'comments' ) {
 
@@ -7569,8 +7589,8 @@ sub showdocsforgroup
 		"d.hostid, d.groupid, d.documentid, d.template, ".
 		"d.cssid, d.icon, d.rssid, d.author, d.moderator, d.moderated, ".
 		"d.comments, d.isdefault, d.is404, d.display, ".
-		"to_char(d.created,'".$dateformat."') as created,".
 		"to_char(d.updated,'".$dateformat."') as updated,".
+		"to_char(d.published,'".$dateformat."') as published,".
 		"d1.title as title, d1.language as language, d1.approved as approved ".
 		"from ".
 		"documents d, documentscontent d1 ".
@@ -7611,8 +7631,8 @@ sub showdocsforgroup
 		print "<th align='left'>Template</th>\n";
 		print "<th align='left'>Css</th>\n";
 		print "<th align='left'>Rss</th>\n";
-		print "<th align='left'>Created</th>\n";
 		print "<th align='left'>Updated</th>\n";
+		print "<th align='left'>Published</th>\n";
 		print "<th align='center'>Comm/App</th>\n";
 		print "<th>&nbsp;</th>\n";
 		print "</tr>\n";
@@ -7655,7 +7675,7 @@ sub showdocsforgroup
 	}
 }
 
-# utility function to show one single document in the 'showdocuments' function above.
+# utility function to show one single document in the 'showdocsforgroup' function above.
 # used not to repeat everytime.
 sub showonedoc
 {
@@ -7789,10 +7809,10 @@ sub showonedoc
 	print $did->{'rssid'};
 	print "</td>\n";
 	print "<td>\n";
-	print $did->{'created'};
+	print $did->{'updated'};
 	print "</td>\n";
 	print "<td>\n";
-	print $did->{'updated'};
+	print $did->{'published'};
 	print "</td>\n";
 
 	print "<td align='center'>\n";

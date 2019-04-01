@@ -7,6 +7,8 @@ use CGI qw/:standard/;
 use CGI::Cookie;
 #use Shell qw(dig);
 use Mail::Sendmail;
+use Date::Parse;
+use Date::Format;
 
 require '/var/www/cms50/cgi-bin/cmsfdtcommon.pl';
 
@@ -21,6 +23,8 @@ my $newip=$query->param('newip') || '';
 my $mode=$query->param('mode') || '';
 my $last=$query->param('last') || '';
 
+my $today=time2str("%Y-%m-%d:%H:%M",time);
+
 # open connection to the db
 my $dbh=dbconnect($configfile);
 my $dsn;
@@ -32,15 +36,23 @@ my $addicon=$iconsdir."/".getconfparam('addicon',$dbh);
 
 my $mm=shift || '';
 if( $mm eq 'do' ) {
-	# dump a list of the ips in a file for processing
+	# update iptables with the IP in the system (must be executed as root)
 	my $sql='select ip from firewall where enabled is true order by ip ';
 	my $s=$dbh->prepare($sql);
+	my $count=0;
 	$s->execute();
+
+	# flush the chain first
 	system("/usr/sbin/iptables -F goaway");
+
+	# process the entries
 	while( my ($r)=$s->fetchrow_array() ) {
+		$count++;
+		#print "/usr/sbin/iptables -A goaway -s $r -j DROP\n";
 		system("/usr/sbin/iptables -A goaway -s $r -j DROP");
 	}
 	$s->finish();
+	print "$today - executed $count rules.\n";
 	exit 0;
 }
 
@@ -213,7 +225,7 @@ sub showall
 	print "<a href='".$myself."?last=01:00'>60 min</a> \n";
 	print "<a href='".$myself."?last=06:00'>6 hours</a> \n";
 	print "<a href='".$myself."?last=12:00'>12 hours</a> \n";
-	print "<a href='".$myself."?last=24:00'>12 hours</a> \n";
+	print "<a href='".$myself."?last=24:00'>24 hours</a> \n";
 	print "additions/changes - \n";
 	
 	# show search box
@@ -225,7 +237,7 @@ sub showall
 	print "<hr>\n";
 	
 	# show the records
-	print "<table width='100%' boder='1' cellspacing='0' cellpadding='0'>\n";
+	print "<table width='100%' border='0' cellspacing='0' cellpadding='0'>\n";
 	print "<tr>\n";
 	print "<th align='left'>ip/mask</th>\n";
 	print "<th align='left'>added</th>\n";

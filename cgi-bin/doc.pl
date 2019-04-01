@@ -11,6 +11,7 @@ use Date::Parse;
 use Date::Format;
 use Config::General;
 use SWISH::API;
+use LWP::UserAgent;
 
 require 'cmsfdtcommon.pl';
 
@@ -197,7 +198,7 @@ foreach my $u (@urls) {
 
 		if( $ip ne '82.94.182.66' && $ip ne '127.0.0.1' ) {
 
-			print STDERR "Received a forbidden $u from $ip\n";
+			print STDERR "FORBIDDEN '".$docid."' from $ip\n";
 
 			my $q='select count(*) from firewall where ip=?';
 			my $t=$dbh->prepare($q);
