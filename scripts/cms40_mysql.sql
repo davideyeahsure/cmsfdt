@@ -115,6 +115,7 @@ CREATE TABLE `documents` (
   `author` varchar(255) NOT NULL,
   `created` timestamp NOT NULL default CURRENT_TIMESTAMP,
   `updated` datetime default NULL,
+  `published` datetime default NULL,
   `title` varchar(255) NOT NULL default 'default title',
   `excerpt` text,
   `content` text,

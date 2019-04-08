@@ -303,6 +303,7 @@ create table documents (
 	display		boolean		default false,
 	created		timestamp	default now(),
 	updated		timestamp	default now(),
+	published 	timestamp	default null,
 	primary key (hostid,groupid,documentid),
 	foreign key (hostid,template) references templates
 );
