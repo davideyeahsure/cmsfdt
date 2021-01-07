@@ -4,7 +4,6 @@ use strict;
 use DBI;
 use CGI qw/:standard/;
 use CGI::Cookie;
-#use Shell qw(dig);
 use Config::General;
 use Date::Format;
 use Date::Parse;

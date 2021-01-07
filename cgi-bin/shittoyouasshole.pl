@@ -1,10 +1,10 @@
 #!/usr/bin/perl
-
+# rude response to peoples trying to do nasty things.
+#
 use strict;
 use CGI;
 use DBI;
 use Config::General;
-#use Shell qw(dig);
 
 require 'cmsfdtcommon.pl';
 

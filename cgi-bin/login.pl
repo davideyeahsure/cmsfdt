@@ -1,10 +1,9 @@
 #!/usr/bin/perl
-# Registration/login screen
+# Registration/login screen for cms fdt 5.1.1
 
 use strict;
 use DBI;
 use CGI qw/:standard/;
-#use Shell qw(dig);
 use Config::General;
 use Date::Parse;
 use Date::Format;

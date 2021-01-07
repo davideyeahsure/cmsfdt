@@ -1,107 +1,0 @@
-Indexing Data Source: "HTTP-Crawler"
-Indexing "http://www.davidebianchi.net"
-Removing very common words...
-no words removed.
-Writing main index...
-err: No unique words indexed!
-.
-Indexing Data Source: "HTTP-Crawler"
-Indexing "http://helpcms.onlyforfun.net"
-Removing very common words...
-no words removed.
-Writing main index...
-err: No unique words indexed!
-.
-Indexing Data Source: "HTTP-Crawler"
-Indexing "http://www.soft-land.org"
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Removing very common words...
-no words removed.
-Writing main index...
-Sorting words ...
-Sorting 66,048 words alphabetically
-Writing header ...
-Writing index entries ...
-  Writing word text: ...  Writing word text:  10%  Writing word text:  20%  Writing word text:  30%  Writing word text:  40%  Writing word text:  50%  Writing word text:  60%  Writing word text:  70%  Writing word text:  80%  Writing word text:  90%  Writing word text: 100%  Writing word text: Complete
-  Writing word hash: ...  Writing word hash:  10%  Writing word hash:  20%  Writing word hash:  30%  Writing word hash:  40%  Writing word hash:  50%  Writing word hash:  60%  Writing word hash:  70%  Writing word hash:  80%  Writing word hash:  90%  Writing word hash: 100%  Writing word hash: Complete
-  Writing word data: ...  Writing word data:   9%  Writing word data:  19%  Writing word data:  29%  Writing word data:  39%  Writing word data:  49%  Writing word data:  59%  Writing word data:  69%  Writing word data:  79%  Writing word data:  89%  Writing word data:  99%  Writing word data: Complete
-66,048 unique words indexed.
-Sorting property: swishdocpath                            Sorting property: swishtitle                              Sorting property: swishdocsize                            Sorting property: swishlastmodified                       4 properties sorted.                                              
-1,099 files indexed.  22,706,502 total bytes.  2,164,143 total words.
-Elapsed time: 00:27:52 CPU time: 00:00:04
-Indexing done!
-Indexing Data Source: "HTTP-Crawler"
-Indexing "http://softland"
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-No SWISH filters found
-Parsing of undecoded UTF-8 will give garbage when decoding entities at /usr/local/lib/swish-e/swishspider line 97.

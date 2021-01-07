@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# CMS FDT 5.1 - Edit content using CKEditor 4.
+# CMS FDT 5.1.1 - Edit content using CKEditor 4.
 # This form can edit a document, template, fragment, css or comment.
 # actually, at the current state, comments have their own little bit.
 #
@@ -11,7 +11,6 @@ use CGI::Cookie;
 use Config::General;
 use Date::Format;
 use Date::Parse;
-#use Shell qw(dig);		# am I using this? At all?
 
 require 'cmsfdtcommon.pl';
 

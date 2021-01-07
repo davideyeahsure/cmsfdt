@@ -1,6 +1,5 @@
 #!/usr/bin/perl
-#
-# CMS FDT 5.0 common functions
+# CMS FDT 5.1.1 common functions - Jan 2021
 
 use strict;
 use DBI;
@@ -10,7 +9,6 @@ use Config::General;
 use Mail::Sendmail;
 use Email::Valid;
 use Digest::MD5 qw(md5_base64);
-#use Shell qw(dig);
 
 my $myself=script_name();
 my @salt = ( '.', '/', 0 .. 9, 'A' .. 'Z', 'a' .. 'z' );
@@ -50,14 +48,15 @@ sub dbconnect
 sub logout
 {
 	my $dbh=shift;
+	my $preferredlanguage=shift;
 	my $query=new CGI();
 	my $host=getconfparam('cookiehost',$dbh);
 
 	# build and set the cookie
 	my $cookie=new CGI::Cookie(
 		-name=>$host,
-		-value=>'none',
-		-expires=>'-1h',
+		-value=>'none:none:'.$preferredlanguage,
+		-expires=>'+1d',
 		-secure=>0);
 
 	# set the cookie.
@@ -251,18 +250,18 @@ sub getloggedinuser
 	my $user='Unknown';
 	my $icon=$defavatar;
 	my $isroot=0;
+	my $preferredlanguage='en';
 	my $query=CGI->new;
 	my $debugvalue;
-
 
 	my $cookies=$query->cookie($cookiehost);
 
 	if($cookies) {
 
 		# split username into userid and random password
-		($userchk,$userid) = split /:/,$cookies;
+		($userchk,$userid,$preferredlanguage) = split /:/,$cookies;
 		if($debug) {
-			print STDERR "Userid=".$userid." usrcheck: $userchk\n";
+			print STDERR "Userid: $userid usrcheck: $userchk langage: $preferredlanguage\n";
 		}
 		my $q="select name,icon,isroot from users where email=? and userchk=?";
 		my $sth=$dbh->prepare($q);
@@ -340,7 +339,7 @@ sub printfooter
 {
 	print "<div class='copy'>\n";
 	print "The ";
-print "<a href='http://www.soft-land.org/articoli/cmsfdt'>";
+	print "<a href='http://www.soft-land.org/articoli/cmsfdt'>";
 	print "CMSFDT";
 	print "</a> is made by D.Bianchi, (C) 2008-averyfarawaydate.\n";
 	print "</div>\n";
@@ -835,7 +834,7 @@ sub getconfparam
 # frontend 
 sub login
 {
-	my ($email,$password,$dbh,$query)=@_;
+	my ($email,$password,$preferredlanguage,$dbh,$query)=@_;
 
 	my $q="select password from users where email=?";
 	my $chkusr;
@@ -866,12 +865,13 @@ sub login
 		}
 	}
 
-	# if successfull login, print the header and set the cookie.
+	# if successfull login, save the login status in the cookie, otherwise, just the preferred language.
+	my $host=getconfparam('cookiehost',$dbh);
+
 	if( $chkusr) {
-		my $host=getconfparam('cookiehost',$dbh);
 		my $cookie=$query->cookie(
 			-name 	 => $host,
-			-value	 => $chkusr.":".$email,
+			-value	 => $chkusr.":".$email.":".$preferredlanguage,
 			-expires => '+1d',
 			-secure	 => 0
 		);
@@ -882,9 +882,16 @@ sub login
 		);
 
 	} else {
+		my $cookie=$query->cookie(
+			-name 	 => $host,
+			-value	 => "::".$preferredlanguage,
+			-expires => '+10d',
+			-secure	 => 0
+		);
 		print $query->header(
 			-type   => 'text/html',
-			-expires=> '0m'
+			-expires=> '+30m',
+			-cookie => [$cookie]
 		);
 	}
 	print "<html>\n";
@@ -1006,8 +1013,11 @@ sub processthecomment
 	$c=~s/ _([^_]+)_ / <u>$1<\/u> /g;
 
 	# last, change CR/LF into <br> or <p>
-	$c=~s/+/<p>/g;
-	$c=~s//<br>/g;
+	$c=~s/
+
++/<p>/g;
+	$c=~s/
+/<br>/g;
 
 	# return the processed comment;
 	return $c;

@@ -1,8 +1,8 @@
 #!/usr/bin/perl
 # Also known as "CMS FDT V.5.0" (FdT=FaiDaTe=DoItYourself)
 # by D.Bianchi 2008 - All rights reserved
+# version 5.1.1 - Jan 2021
 # See http://www.soft-land.org
-# #
 
 use strict;
 use CGI qw/:standard/;
@@ -10,8 +10,8 @@ use DBI;
 use Date::Parse;
 use Date::Format;
 use Config::General;
-use SWISH::API;
 use LWP::UserAgent;
+#use SWISH::API;			# << Swish is disabled in this version
 
 require 'cmsfdtcommon.pl';
 
@@ -31,6 +31,7 @@ my $avatardir=adjustdir(getconfparam('avatardir',$dbh));
 
 my $defavatar=getconfparam('defavatar',$dbh);
 my $debug=getconfparam('debug',$dbh);
+$debug=1;
 
 # current user
 my $user;
@@ -39,13 +40,26 @@ my $isroot;
 my $issuperuser;
 my $query=CGI->new;
 my $myself=script_name();
+my $preferredlanguage='';
+
+# load the default language cookie (if any)
+my $cookiename=getconfparam('cookiehost',$dbh);
+my $cookies=$query->cookie($cookiename);
+if($cookies) {
+	(undef,undef,$preferredlanguage)=split /:/,$cookies;
+}
 
 if( $query->param('mode') eq 'logout' ) {
-	logout($dbh);
+	logout($dbh,$preferredlanguage);
+}
+
+if ($query->param('mode') eq 'setpreferredlanguage' ) {
+	# set language to ...
+	$preferredlanguage=$query->param('language');
 }
 
 if( $query->param('mode') eq 'login' ) {
-	login($query->param('email'),$query->param('password'),$dbh,$query);
+	login($query->param('email'),$query->param('password'),$preferredlanguage,$dbh,$query);
 }
 
 # get the current user (do not print header)
@@ -104,11 +118,17 @@ if($y==0) {
 	$lang[0]=$deflang;
 }
 
+# overwrite language with the preferred one.
+if ($preferredlanguage ne '') {
+	$lang[0]=$preferredlanguage;
+}
+
 # locate the default group and template for the host
 my $defsection=locatedefaultgroup($host);
 my $deftpl=locatedefaulttpl($host,$dbh);
 
 if( $debug ) {
+	print STDERR "Language: $lang[0]\n";
 	print STDERR "Default section: $defsection\n";
 	print STDERR "Default tpl: $deftpl\n";
 }
@@ -230,19 +250,39 @@ $css=~s/\/\//\//g;
 my $js=getconfparam('js',$dbh);
 my @scripts=split /;/,$js;
 
+# Need to save a cookie with the default language, if it has been set.
+# if the user has logged in, the cookie has been set already.
+my $v1;
+my $v2;
+if($cookies) {
+	($v1,$v2,undef)=split /:/,$cookies;
+}
+if (!$v1 || !$v2) {
+	$v1='none';
+	$v2='none';
+}
+$cookies=$query->cookie(
+	-name 	 => $cookiename,
+	-value	 => $v1.":".$v2.":".$preferredlanguage,
+	-expires => '+1d',
+	-secure	 => 0
+);
+
 if( $document->{'is404'} eq 1 ) {
 	print $query->header(
 		-type=>'text/html',
 		-expires=>'0m',
 		-status=>'404 Not Found',
-		-charset=>'iso-8859-15'
+		-charset=>'iso-8859-15',
+		-cookie => [$cookies]
 	);
 } else {
 	print $query->header(
 		-type=>'text/html',
 		-expires=>'0m',
 		-status=>'200 OK',
-		-charset=>'iso-8859-15'
+		-charset=>'iso-8859-15',
+		-cookie => [$cookies]
 	);
 }
 
@@ -252,7 +292,7 @@ print "<html>\n";
 print "<!-- this document was produced with the (in)famous Cms FDT v. 5.0 -->\n";
 print "<!-- by D.Bianchi (c) 2008-averyfarawaydate -->\n";
 print "<!-- see http://www.soft-land.org/ -->\n";
-print "<!-- currently loggedin as ".$userid." - ".$user." - ".$isroot."-->\n";
+print "<!-- currently loggedin as ".$userid." - ".$user." - root:".$isroot." - ".$preferredlanguage ."-->\n";
 print "<head>\n";
 print "<meta http-equiv='Content-type' content='text/html;charset=iso-8859-15' />\n";
 print '<meta name="google-site-verification" content="r33YyzPGlgNzbUz6eNHHsApaDLICEOgZ3vl2GRugvZU" />'."\n";
@@ -485,7 +525,13 @@ sub processdoc
 		# login/logout link
 		if( $line =~ /<!--login-->/ ) {
 			showlogin();
-			$print=0;
+			$print=1;
+		}
+
+		# setup language link
+		if ($line =~ /<!--setlang-->/ ) {
+			setpreferredlang();
+			$print=1;
 		}
 
 		if( $line =~ /<!--loginform-->/ ) {
@@ -1210,11 +1256,11 @@ sub journal
 		$t->{'title'}='defaultjournal';
 		$t->{'language'}=$deflang;
 		$t->{'content'}=
-			"<div class='doctitle'>\n".
-			"<!--icon-->\n".
-			"<a href='<!--docname-->'>\n".
-			"<!--title-->\n".
-			"</a></div>\n".
+			"<span>".
+			"<!--icon=align='left'-->".
+			"<h4><a href='<!--docname-->'>".
+			"<!--title-->".
+			"</a></h4></span>\n".
 			"<div class='docdetails'>\n".
 			"<!--getatext=by-->\n".
 			"<!--name-->,\n".
@@ -1466,12 +1512,9 @@ sub printmsgheader
 
 	my $winw=getconfparam('commedit-fw',$dbh);
 	my $winh=getconfparam('commedit-fh',$dbh);
-	my $windowdefault="\"scrollbars=1,location=0,toolbar=no,menubar=no,".
-	"status=0,width=".$winw.",height=".$winh.",resizable=yes\"";
-
 	my $mess;
 
-	print "<div class='attention'>";
+	print "<h6>";
 	if( $c == 1 ) {
 		print getatext('onemess','one message');
 	} elsif( $c == 0 )  {
@@ -1483,20 +1526,18 @@ sub printmsgheader
 	}
 
 	if( $document->{'comments'} ) {
-		print "<span class='newcomment' ";
-		print "onclick='openwindow(\"/cgi-bin/postnew.pl";
-		print "?hostid=".$hostid."&#38;groupid=".$groupid."&#38;documentid=";
-		print $docid."\",\"\",";
-		print $windowdefault;
-		print ")' onmouseover='style.cursor=\"pointer\"'> ";
+		print " <span class='newcomment'>";
+		print "<a href='/cgi-bin/postnew.pl?hostid=".$hostid."&groupid=".$groupid."&documentid=".$docid."' target='_blank'>";
 		print getatext('postnew','post');
-		print "</span>\n";
+		print "</a>";
+		print "</span>";
 	} else {
-		print "<span class='newcomment'>";
+		print " <span class='newcomment'>";
 		print getatext('closed',' this document does not accept new posts');
-		print "</span>\n";
+		print "</span>";
 	}
-	print "</div>\n";
+	print "</h6>\n";
+	print "<hr>\n";
 }
 
 # loop through the comments with a given parentid for threading
@@ -1558,11 +1599,7 @@ sub showasinglecomment
 	# width and height of the edit window
 	my $winw=getconfparam('commedit-fw',$dbh);
 	my $winh=getconfparam('commedit-fh',$dbh);
-
 	my $msg;
-
-	my $windowdefault="\"scrollbars=1,location=0,toolbar=no,menubar=no,".
-	"status=0,width=".$winw.",height=".$winh.",resizable=yes\"";
 
 	# build a ref here
 	my $cid="hostid=".$c->{'hostid'}."&#38;groupid=".$c->{'groupid'}.
@@ -1574,47 +1611,33 @@ sub showasinglecomment
 	my $id=$c->{'hostid'}."-".$c->{'groupid'}."-".$c->{'documentid'}."-".
 		$c->{'commentid'}."-".$c->{'parentid'};
 
-
-	print "<span class='msgtitle'>\n";
 	if( $c->{'icon'} ne '' && $c->{'icon'} ne 'none' ) {
-		print "<img src='".$avatardir."/".$c->{'icon'}.
-		"' width='24px' ";
-		print "alt=\"".$c->{'username'}."\">";
+		print "<img src='".$avatardir."/".$c->{'icon'}."' width='24px' ";
+		print "alt=\"".$c->{'username'}."\" align='left'>";
 	}
-	print $c->{'title'};
-	print "</span>\n";
-	print "<span class='msgdetails'>\n";
+	print "<p>\n";
 	print getatext('by','by')." ";
-	print $c->{'username'};
-	print " - ".getatext('posted','posted')." ";
+	print "<b>".$c->{'username'}."</b>";
+	print getatext('posted','posted')." ";
 	print convdate($c->{'created'});
-	print "</span>\n";
-
 	if( $document->{'comments'} ) {
 		# answer
-		print " -  ";
-		print "<span class='command' ";
-		print "onclick='openwindow(\"/cgi-bin/postnew.pl";
-		print "?hostid=".$c->{'hostid'}."&#38;groupid=".
-		$c->{'groupid'}."&#38;documentid=";
-		print $c->{'documentid'}."&#38;commentid=".$c->{'commentid'};
-		print "&#38;parentid=".$c->{'parentid'}."\",\"\",";
-		print $windowdefault;
-		print ")' onmouseover='style.cursor=\"pointer\"'> ";
+		print " - ";
+		print "<span class='command'>";
+		print "<a href='/cgi-bin/postnew.pl?hostid=".$c->{'hostid'}."&groupid=".$c->{'groupid'}."&documentid=";
+		print $c->{'documentid'}."&commentid=".$c->{'commentid'};
+		print "&parentid=".$c->{'parentid'}."' target='_blank'>";
 		print getatext('answer','answer');
-		print " </span>";
+		print "</a></span>";
 	}
-
-	print "<br>\n";
+	print "</p>\n";
 	print "<div class='msgtext'>";
-	#print $c->{'content'};
 	print processthecomment($c->{'content'},$dbh);
 	print "</div>\n";
 	print "<hr><p>\n";
 	return 0;
 
 }
-
 
 ########################################################################
 # try to locate a section with the same name
@@ -1675,7 +1698,7 @@ sub searchimage
 	my $imgid=shift;
 	my $param=shift;
 	my $link=shift;
-	my $q='select imageid,filename,created from images where hostid=? and imageid=?';
+	my $q='select imageid,filename,created,alternate from images where hostid=? and imageid=?';
 	my $x='image '.$imgid.' not found';
 
 	if( $debug ) {
@@ -1694,8 +1717,7 @@ sub searchimage
 			$x="<a href='/img/".$host."/".$r->{'filename'}."' target='__blank'>";
 		}
 		$x.="<img src='/img/".$host."/thumbs/".$r->{'filename'}.
-		"' alt='".$r->{'imageid'}." ".$r->{'created'};
-		$x.="' title='".$r->{'imageid'}." ".$r->{'created'}."' border='0' ".$param.">";
+		"' alt='".$r->{'alternate'}."' title='".$r->{'alternate'}."' border='0' ".$param.">";
 		if( $link ) {
 			$x.="</a>";
 		}
@@ -1869,6 +1891,26 @@ sub searchforcomments
 	return $rt;
 }
 
+# show the set-preferred language entry
+sub setpreferredlang()
+{
+	my $language;
+	#=include('login');
+	my @llist = split(/ /,getconfparam('languages',$dbh));
+
+	$language->{'content'}=getatext('getlangprompt','Set language to:');
+	$language->{'fragid'}='getlangprompt';
+	$language->{'language'}=$deflang;
+	$language->{'name'}='getlangprompt';
+	$language->{'created'}='01-01-2009';
+
+	foreach my $l (@llist) {
+		$language->{'content'}.="<a href='/cgi-bin/doc.pl?mode=setpreferredlanguage&language=".$l."'>".$l."</a> ";
+	}
+	processdoc($language);
+	return;
+}
+
 # show the login/logout entry
 sub showlogin
 {
@@ -1960,7 +2002,7 @@ sub showdocicon
 	$dociconsdir="/".$dociconsdir;
 	$dociconsdir=~s/^\/\//\//;
 	$dociconsdir=~s/\/$//;
-	$ret="<img src='".$dociconsdir."/".$icon."' alt='".$icon."' ".$special.">";
+	$ret="<img src='".$dociconsdir."/".$icon."' ".$special.">";
 	return $ret;
 }
 
@@ -2002,135 +2044,139 @@ sub getfeed
 # search engine. It require that the engine is working (of course)
 sub searches
 {
-	# get the template (if specified)
-	my $tpl=shift;
-	my $t;
 
-	# get the position of the index
-	my $swishdir=getconfparam('swishdir',$dbh);
-	if( ! $swishdir || ! -d $swishdir )  {
-		return;
-	}
+	# swish seems to have disappeared...
+	return;
 
-	# the index is in a subdir of $swishdir
-	my $index=$swishdir."/".$host."/index.swish-e";
-	if( ! -f $index ) {
-		return;
-	}
-	
-	my $words=$query->param('words');
-	if( $words eq '' ) {
-		return;
-	}
-
-	if( $debug ) {
-		print STDERR "Doing search with template '".$tpl."'\n";
-	}
-
-	if( $tpl ) {
-
-		# make a default template
-		$t->{'templateid'}='searchlist';
-		$t->{'title'}='searchlist';
-		$t->{'language'}=$deflang;
-		$t->{'content'}=(q{
-		<p>
-		<div class='doctitle'>
-		<a href='<!--docname-->'><!--title--></a>
-		<!--stars-->
-		</div>
-		<div class='docdetails'>
-		<!--getatext=by-->
-		<!--field=name-->
-		<!--getatext=updated-->
-		<!--updated-->
-		-
-		<!--numcomments-->
-		</div>
-		<div class='docexcerpt'>
-		<!--excerpt-->
-		</div>
-		</p>
-		});
-		$t->{'name'}='default search list';
-		$t->{'updated'}='01-01-2008';
-		$t->{'created'}='01-01-2008';
-	} else {
-		# load the template
-		$t=loadtpl($tpl);
-	}
-
-	# build the Swish object to search the index
-	my $swish=SWISH::API->new($index);
-	$swish->abort_last_error if $swish->Error;
-
-	my $result=$swish->query($words);
-	$swish->abort_last_error if $swish->Error;
-	my $hits=$result->hits;
-
-	if( ! $hits ) {
-		print "<p><b>\n";
-		print getatext('nothingfoundfor','No document matches your query.');
-		print "</b></p>\n";
-	} else {
-		my $f=getatext('docsfounds','Found %d documents matching your query.');
-		print "<p><b>\n";
-		printf($f, $hits );
-		print "</b></p>\n";
-
-		# prepare to search for the document's informations
-		my $q=(q{
-			select 
-				d.*, dc.language, dc.title, dc.excerpt, u.name 
-			from 
-				documents d, documentscontent dc, users u, links l
-			where 
-				dc.hostid=l.hostid and
-				dc.groupid=l.groupid and
-				dc.documentid=l.documentid and
-				d.author=u.email and
-				d.hostid=l.hostid and
-				d.groupid=l.groupid and
-				d.documentid=l.documentid and
-				dc.approved=true and 
-				l.link=?
-		});
-		my $r=$dbh->prepare($q);
-
-		while( my $tok=$result->next_result ) {
-
-			my $rank=$tok->property("swishrank");
-			my $title=$tok->property("swishtitle");
-			my $updated=$tok->property("swishlastmodified");
-			my $doc=$tok->property("swishdocpath");
-
-			# if the doc contains 'http...' it is not a
-			# relative link so I have to process it
-			if( $doc=~/host=/ ) {
-				$doc=~s/^.*doc=//;
-			}
-
-			my $stars;
-
-			# compute number of 'stars'
-			$stars=int($rank/200);
-
-			# if too long a document or not enough stars, don't display it.
-			if( length $title <= 60 && $stars > 0 ) {
-
-				# search the doc
-				my $d=$doc;
-				$d=~s/^http:\/\/[^\/]+\///;
-				$r->execute($d);
-
-				if( $r->rows > 0 ) {
-					# get one document with the right language
-					my $x=searchtherightone($r);
-					$x->{'stars'}=$stars;
-					processdoc($x,$t);
-				} 
-				$r->finish();
-			}
-		}
-	}
+#	# get the template (if specified)
+#	my $tpl=shift;
+#	my $t;
+#
+#	# get the position of the index
+#	my $swishdir=getconfparam('swishdir',$dbh);
+#	if( ! $swishdir || ! -d $swishdir )  {
+#		return;
+#	}
+#
+#	# the index is in a subdir of $swishdir
+#	my $index=$swishdir."/".$host."/index.swish-e";
+#	if( ! -f $index ) {
+#		return;
+#	}
+#	
+#	my $words=$query->param('words');
+#	if( $words eq '' ) {
+#		return;
+#	}
+#
+#	if( $debug ) {
+#		print STDERR "Doing search with template '".$tpl."'\n";
+#	}
+#
+#	if( $tpl ) {
+#
+#		# make a default template
+#		$t->{'templateid'}='searchlist';
+#		$t->{'title'}='searchlist';
+#		$t->{'language'}=$deflang;
+#		$t->{'content'}=(q{
+#		<p>
+#		<div class='doctitle'>
+#		<a href='<!--docname-->'><!--title--></a>
+#		<!--stars-->
+#		</div>
+#		<div class='docdetails'>
+#		<!--getatext=by-->
+#		<!--field=name-->
+#		<!--getatext=updated-->
+#		<!--updated-->
+#		-
+#		<!--numcomments-->
+#		</div>
+#		<div class='docexcerpt'>
+#		<!--excerpt-->
+#		</div>
+#		</p>
+#		});
+#		$t->{'name'}='default search list';
+#		$t->{'updated'}='01-01-2008';
+#		$t->{'created'}='01-01-2008';
+#	} else {
+#		# load the template
+#		$t=loadtpl($tpl);
+#	}
+#
+#	# build the Swish object to search the index
+#	my $swish=SWISH::API->new($index);
+#	$swish->abort_last_error if $swish->Error;
+#
+#	my $result=$swish->query($words);
+#	$swish->abort_last_error if $swish->Error;
+#	my $hits=$result->hits;
+#
+#	if( ! $hits ) {
+#		print "<p><b>\n";
+#		print getatext('nothingfoundfor','No document matches your query.');
+#		print "</b></p>\n";
+#	} else {
+#		my $f=getatext('docsfounds','Found %d documents matching your query.');
+#		print "<p><b>\n";
+#		printf($f, $hits );
+#		print "</b></p>\n";
+#
+#		# prepare to search for the document's informations
+#		my $q=(q{
+#			select 
+#				d.*, dc.language, dc.title, dc.excerpt, u.name 
+#			from 
+#				documents d, documentscontent dc, users u, links l
+#			where 
+#				dc.hostid=l.hostid and
+#				dc.groupid=l.groupid and
+#				dc.documentid=l.documentid and
+#				d.author=u.email and
+#				d.hostid=l.hostid and
+#				d.groupid=l.groupid and
+#				d.documentid=l.documentid and
+#				dc.approved=true and 
+#				l.link=?
+#		});
+#		my $r=$dbh->prepare($q);
+#
+#		while( my $tok=$result->next_result ) {
+#
+#			my $rank=$tok->property("swishrank");
+#			my $title=$tok->property("swishtitle");
+#			my $updated=$tok->property("swishlastmodified");
+#			my $doc=$tok->property("swishdocpath");
+#
+#			# if the doc contains 'http...' it is not a
+#			# relative link so I have to process it
+#			if( $doc=~/host=/ ) {
+#				$doc=~s/^.*doc=//;
+#			}
+#
+#			my $stars;
+#
+#			# compute number of 'stars'
+#			$stars=int($rank/200);
+#
+#			# if too long a document or not enough stars, don't display it.
+#			if( length $title <= 60 && $stars > 0 ) {
+#
+#				# search the doc
+#				my $d=$doc;
+#				$d=~s/^http:\/\/[^\/]+\///;
+#				$r->execute($d);
+#
+#				if( $r->rows > 0 ) {
+#					# get one document with the right language
+#					my $x=searchtherightone($r);
+#					$x->{'stars'}=$stars;
+#					processdoc($x,$t);
+#				} 
+#				$r->finish();
+#			}
+#		}
+#	}
 }

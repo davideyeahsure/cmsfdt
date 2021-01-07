@@ -1,9 +1,6 @@
 #!/usr/bin/perl
 #
-#
-#
-# Backend for the CMS FDT V.5.0
-# New version with PostGres database
+# Backend for the CMS FDT V.5.1.1 - Jan 2021
 #
 
 use strict;
@@ -16,7 +13,6 @@ use Date::Parse;
 use Digest::MD5  qw(md5 md5_hex md5_base64);
 use XML::RSS;
 use File::Temp qw/tempfile/;
-#use Shell qw(dig);
 
 # load common lib
 require 'cmsfdtcommon.pl';
@@ -25,6 +21,7 @@ my $today=time2str("%Y-%m-%d %H:%M",time);
 my $myself=script_name();
 my $query=CGI->new;
 
+my $preferredlang;
 my $dbh=dbconnect('./cms50.conf');
 
 # now get other parameters from the db
@@ -133,12 +130,7 @@ if( $mode eq 'logout' ) {
 
 # if login, perform the login
 if( $mode eq 'login' ) {
-	login(
-		$query->param('email'),
-		$query->param('password'),
-		$dbh,
-		$query
-	);
+	login($query->param('email'),$query->param('password'),'none',$dbh,$query);
 }
 
 # if download, just get back the content of the document/template whatever
@@ -163,7 +155,7 @@ if( $mode eq 'download' ) {
 }
 
 # update the cookie and output the content-header
-($userid,$user,$icon,$isroot) = getloggedinuser($dbh);
+($userid,$user,$icon,$isroot,$preferredlang) = getloggedinuser($dbh);
 
 if( $userid eq 'NONE' ) {
 	# Call directly the 'LOGIN' function to show the login screen.
@@ -5881,8 +5873,7 @@ sub doeditdocument
 		while(<$filename>) {
 			$content.=$_;
 		}
-		# remove junk
-		$content=~s///g;
+		$content=~s/\r\n/\n/g;
 	}
 
 	# If I have an excerpt, remove simple paragraf (<p> - </p>) from it, this to avoid
