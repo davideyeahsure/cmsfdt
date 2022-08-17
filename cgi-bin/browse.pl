@@ -12,6 +12,7 @@ use Date::Parse;
 use Digest::MD5  qw(md5 md5_hex md5_base64);
 use XML::RSS;
 use File::Temp qw/tempfile/;
+use lib (".");
 
 # load common lib
 require 'cmsfdtcommon.pl';

@@ -55,7 +55,7 @@ insert into configuration (paramid,value,updated,description) values ('css','cms
 insert into configuration (paramid,value,updated,description) values ('debug','','2009-06-28 13:00:32','enable/disable debugging');
 insert into configuration (paramid,value,updated,description) values ('defaultfoldericon','folder_full_accept.png','2009-06-29 10:00:34','icon used for the open folder function');
 insert into configuration (paramid,value,updated,description) values ('defavatar','user.png','2009-06-12 02:34:45','default avatar icons');
-insert into configuration (paramid,value,updated,description) values ('defdocicon','fdcba9c2680d8f9b435c9292fadf602e.png','2009-06-16 05:15:01','default document\'s icon');
+insert into configuration (paramid,value,updated,description) values ('defdocicon','fdcba9c2680d8f9b435c9292fadf602e.png',"2009-06-16 05:15:01","default document\'s icon");
 insert into configuration (paramid,value,updated,description) values ('deflang','en','2009-06-13 12:16:40','default language');
 insert into configuration (paramid,value,updated,description) values ('delicon','remove.png','2009-06-13 04:21:56','icon used in the delete or remove command');
 insert into configuration (paramid,value,updated,description) values ('disableicon','search_remove.png','2009-06-13 12:21:50','icon used in the disable display command');
@@ -87,7 +87,7 @@ insert into configuration (paramid,value,updated,description) values ('helplink'
 insert into configuration (paramid,value,updated,description) values ('hosts-fh','400','2009-06-16 07:46:06','height for the edit host window');
 insert into configuration (paramid,value,updated,description) values ('hosts-fw','900','2009-06-16 07:46:13','width for the edit host window');
 insert into configuration (paramid,value,updated,description) values ('hostsicon','home.png','2009-06-14 12:26:40','hosts icon');
-insert into configuration (paramid,value,updated,description) values ('htmlcode','<[^>]+>,& ,ÃÂ¨,ÃÂ©,Ãâ°,ÃË,ÃÂ­,ÃÂ¬,ÃÂ²,ÃÂ³,ÃÂ¹,ÃÂº,Ãâ¬,ÃÂ,ÃÂ¡,ÃÂ ,",\',ò,è,à,é,ù','2009-06-24 18:02:43','Code for the char replacement in comments');
+insert into configuration (paramid,value,updated,description) values ('htmlcode','<[^>]+>,& ,ï¿½Â¨,ï¿½Â©,ï¿½ï¿½,ï¿½ï¿½,ï¿½Â­,ï¿½Â¬,ï¿½Â²,ï¿½Â³,ï¿½Â¹,ï¿½Âº,ï¿½ï¿½,ï¿½ï¿½,ï¿½Â¡,ï¿½Â ,\",ï¿½,ï¿½,ï¿½,ï¿½','2009-06-24 18:02:43','Code for the char replacement in comments');
 insert into configuration (paramid,value,updated,description) values ('htmldecode',',&amp; ,&egrave;,&eacute;,&Egrave;,&Eacute;,&igrave;,&iacute&,&ograve;,&oacute;,&ugrave;,&uacutre&,&Agrave;,&Aacute;,&agrave;,&aacute;,&quot;,&#39;,&ograve;,&egrave;,&agrave;,&eacute;,&ugrave;','2009-06-23 13:10:21','Char for the char replacement in comments');
 insert into configuration (paramid,value,updated,description) values ('iconsdir','/icons/16x16','2009-06-14 12:40:01','icons');
 insert into configuration (paramid,value,updated,description) values ('images-fh','480','2009-06-20 06:16:53','height for the edit image wnd');
@@ -356,6 +356,21 @@ create table comments (
 	primary key (hostid,groupid,documentid,commentid),
 	foreign key (hostid,groupid,documentid) references documents,
 	foreign key (hostid,groupid,documentid,parentid) references comments
+);
+
+/* firewall */
+create table firewall (
+	ip	inet	not null,
+	date	timestamp not null default now(),
+	comment varchar(255) not null default 'automatic',
+	counter numeric not null default 1,
+	updated timestamp not null default now(),
+	country varchar(255) not null default 'Unknown',
+	countrycode varchar(3) not null default 'UNK',
+	active boolean default false,
+	enabled boolean	default true,
+	manual  boolean default false,
+	primary key (ip)
 );
 
 grant all privileges on comments to cms50;

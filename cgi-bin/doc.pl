@@ -5,12 +5,15 @@
 # See http://www.soft-land.org
 
 use strict;
+use lib(".");
 use CGI qw/:standard/;
 use DBI;
 use Date::Parse;
 use Date::Format;
 use Config::General;
 use LWP::UserAgent;
+
+
 #use SWISH::API;			# << Swish is disabled in this version
 
 require 'cmsfdtcommon.pl';
@@ -31,7 +34,6 @@ my $avatardir=adjustdir(getconfparam('avatardir',$dbh));
 
 my $defavatar=getconfparam('defavatar',$dbh);
 my $debug=getconfparam('debug',$dbh);
-$debug=1;
 
 # current user
 my $user;
@@ -160,9 +162,13 @@ if( $FORM{'language'}) {
 
 # a year? if not, load with the current one
 if(!$FORM{'year'}) {
-	$FORM{'year'}=$year;
-	if($debug) {
-		print STDERR "year : $year\n";
+	$FORM{'year'} = $year;
+} else {
+	# check if the year is actually a number
+	if ($FORM{'year'} =~ /\D/) {
+		# doesn't look like a year.
+		print STDERR "Wrong year passed: $FORM{'year'} - overriding.\n";
+		$FORM{'year'} = $year;
 	}
 }
 
@@ -195,45 +201,55 @@ if($debug) {
 }
 
 # check if the required URL is in a 'forbidden' list
-my $forbid=getconfparam('forbidden',$dbh);
-my @urls=split /,/,$forbid;
+my $forbid = getconfparam('forbidden',$dbh);
+my @urls = split /,/,$forbid;
 foreach my $u (@urls) {
 	if( $docid =~ /$u/ || $ENV{'REQUEST_METHOD'} =~ /CONNECT/ ) {
 
 		if ( $ENV{'REQUEST_METHOD'} =~ /CONNECT/ ) {
-			$u='Connect used';
+			$u = 'Connect used';
 		}
 
-		my $ip=$ENV{"HTTP_X_FORWARDED_FOR"};
-		my $ip2=$ENV{"REMOTE_ADDR"};
+		# get the IP that were used
+		my $ip = $ENV{"HTTP_X_FORWARDED_FOR"};
+		my $ip2 = $ENV{"REMOTE_ADDR"};
 
 		if( $ip =~ /, / ) {
 			# IP contains two of them, get the first one
-			$ip=~s/, .*$//;
+			$ip =~ s/, .*$//;
 		}
 
+		# check if the IP is the localhost
 		if( $ip eq '82.94.182.66' || $ip eq '127.0.0.1' ) {
 			$ip=$ip2;
 		}
 
+		# check if the IP is still the localhost
 		if( $ip ne '82.94.182.66' && $ip ne '127.0.0.1' ) {
 
+			# report a forbidden url for the iP.
 			print STDERR "FORBIDDEN '".$docid."' from $ip\n";
 
+			# add entry to the firewall table with a counter for every request
 			my $q='select count(*) from firewall where ip=?';
 			my $t=$dbh->prepare($q);
 			$t->execute($ip);
 			my ($c)=$t->fetchrow_array();
 			$t->finish();
 			if( $c == 0 ) {
-				$q='insert into firewall (ip,comment,enabled) values (?,?,true)';
+				$q='insert into firewall (ip, comment, enabled) values (?,?,true)';
 				$t=$dbh->prepare($q);
 				$t->execute($ip,$docid);
 				$t->finish();
-			} 
+			} else {
+				$q='update firewall set counter = counter+1, updated=now() where ip=?';
+				$t=$dbh->prepare($q);
+				$t->execute($ip);
+				$t->finish();
+			}
 		}
-		$section='';
-		$docid='eatshit';
+		# stop processing here. No data will be sent to the requestor
+		exit 0;
 	}
 }
 

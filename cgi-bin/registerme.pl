@@ -10,6 +10,7 @@ use Date::Format;
 use Date::Parse;
 use URI::Find;
 use Mail::SpamAssassin;
+use lib (".");
 
 require 'cmsfdtcommon.pl';
 

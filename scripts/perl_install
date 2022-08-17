@@ -1,0 +1,14 @@
+# execute this as root to install the required Perl modules, note that swish (search engine) is missing
+# because it seems to have disappeared again :-(
+cpan DBI
+cpan CGI
+cpan CGI::Cookie
+cpan Config::General
+cpan Date::Format
+cpan Date::Parse
+cpan Digest::MD5
+cpan XML::RSS
+cpan File::Temp
+cpan LWP::UserAgent
+cpan URI::Find
+cpan Mail::SpamAssassin

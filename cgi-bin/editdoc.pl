@@ -11,6 +11,7 @@ use CGI::Cookie;
 use Config::General;
 use Date::Format;
 use Date::Parse;
+use lib (".");
 
 require 'cmsfdtcommon.pl';
 

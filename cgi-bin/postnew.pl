@@ -9,6 +9,7 @@ use Date::Format;
 use Date::Parse;
 use URI::Find;
 use Mail::SpamAssassin;
+use lib (".");
 
 require 'cmsfdtcommon.pl';
 
@@ -393,7 +394,10 @@ sub checkthecomment
 
 	# no signature if I am in editing
 	if( $mode ne 'doedit' && $sign ne '') {
-		$s=$comment."-- ".$sign;
+		$s=$comment."
+
+-- 
+".$sign;
 	} else {
 		$s=$comment;
 	}

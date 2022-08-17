@@ -1,0 +1,7 @@
+Change log for CMSFDT
+
+2022-08     Added example Apache configuration file, added script to install required Perl modules, commented
+            Swish search engine (need to fix it), fixed possible Xss bug in doc.pl, fixed "bug" for Perl 5.25 that
+            doesn't have '.' in INC, added Firewall table and management.
+
+            ToDo: fix swish.

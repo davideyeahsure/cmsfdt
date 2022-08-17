@@ -4,6 +4,7 @@
 #
 
 use strict;
+use lib (".");
 use DBI;
 use CGI qw/:standard/;
 use CGI::Cookie;
