@@ -1,22 +1,20 @@
 #!/usr/bin/perl
 # Also known as "CMS FDT V.5.0" (FdT=FaiDaTe=DoItYourself)
 # by D.Bianchi 2008 - All rights reserved
-# version 5.1.1 - Jan 2021
 # See http://www.soft-land.org
+# #
+# Updates 2024/12/11 - moved some "generic" functions to the 'common' module and made 'bridge' functions
 
 use strict;
-use lib(".");
 use CGI qw/:standard/;
 use DBI;
 use Date::Parse;
 use Date::Format;
 use Config::General;
+use SWISH::API;
 use LWP::UserAgent;
 
-
-#use SWISH::API;			# << Swish is disabled in this version
-
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
 my $printed=0;
 
@@ -81,13 +79,15 @@ my $dday=time2str("%Y%m%d",time);
 my $uptime=getuptime();
 my %FORM;
 
-# get the host 
+# get the host - remove port number if required
 my $host=$query->param('host');
 if( ! $host ) {
 	$host=$ENV{'HTTP_HOST'};
 }
+# remove port number from host
+$host=~s/:.*$//;
 
-my $deflang;
+my $deflang='en';
 my $css;
 
 my $q=(q{
@@ -161,15 +161,22 @@ if( $FORM{'language'}) {
 }
 
 # a year? if not, load with the current one
-if(!$FORM{'year'}) {
-	$FORM{'year'} = $year;
+if ($FORM{'year'}) {
+    # check if the year is a number and just a number
+    if ($FORM{'year'} =~ /\D/) {
+        #if ($debug) {
+            print STDERR "Variable 'year' contains wrong chars: $FORM{'year'}, overriding with $year.";
+        #}
+	    $FORM{'year'} = $year;
+    }
 } else {
-	# check if the year is actually a number
-	if ($FORM{'year'} =~ /\D/) {
-		# doesn't look like a year.
-		print STDERR "Wrong year passed: $FORM{'year'} - overriding.\n";
-		$FORM{'year'} = $year;
-	}
+    # override the year parameter with current year
+	$FORM{'year'} = $year;
+}
+
+# debugging
+if ($debug) {
+    print STDERR "year : $year\n";
 }
 
 # For previews, this will ignore the 'approved' status for a document
@@ -200,63 +207,10 @@ if($debug) {
 	print STDERR "Got doc:".$docid."\n";
 }
 
-# check if the required URL is in a 'forbidden' list
-my $forbid = getconfparam('forbidden',$dbh);
-my @urls = split /,/,$forbid;
-foreach my $u (@urls) {
-	if( $docid =~ /$u/ || $ENV{'REQUEST_METHOD'} =~ /CONNECT/ ) {
-
-		if ( $ENV{'REQUEST_METHOD'} =~ /CONNECT/ ) {
-			$u = 'Connect used';
-		}
-
-		# get the IP that were used
-		my $ip = $ENV{"HTTP_X_FORWARDED_FOR"};
-		my $ip2 = $ENV{"REMOTE_ADDR"};
-
-		if( $ip =~ /, / ) {
-			# IP contains two of them, get the first one
-			$ip =~ s/, .*$//;
-		}
-
-		# check if the IP is the localhost
-		if( $ip eq '82.94.182.66' || $ip eq '127.0.0.1' ) {
-			$ip=$ip2;
-		}
-
-		# check if the IP is still the localhost
-		if( $ip ne '82.94.182.66' && $ip ne '127.0.0.1' ) {
-
-			# report a forbidden url for the iP.
-			print STDERR "FORBIDDEN '".$docid."' from $ip\n";
-
-			# add entry to the firewall table with a counter for every request
-			my $q='select count(*) from firewall where ip=?';
-			my $t=$dbh->prepare($q);
-			$t->execute($ip);
-			my ($c)=$t->fetchrow_array();
-			$t->finish();
-			if( $c == 0 ) {
-				$q='insert into firewall (ip, comment, enabled) values (?,?,true)';
-				$t=$dbh->prepare($q);
-				$t->execute($ip,$docid);
-				$t->finish();
-			} else {
-				$q='update firewall set counter = counter+1, updated=now() where ip=?';
-				$t=$dbh->prepare($q);
-				$t->execute($ip);
-				$t->finish();
-			}
-		}
-		# stop processing here. No data will be sent to the requestor
-		exit 0;
-	}
-}
-
-# load the document and the template
+# load the correct document
 my $document=searchdoc($host,$section,$docid,$ignore);
 
-# now load the template
+# now load the template specified by the document
 my $template=loadtpl($document->{'template'});
 
 # load the CSS and the Javascript
@@ -284,6 +238,7 @@ $cookies=$query->cookie(
 	-secure	 => 0
 );
 
+# is the document an error? set the status
 if( $document->{'is404'} eq 1 ) {
 	print $query->header(
 		-type=>'text/html',
@@ -302,10 +257,11 @@ if( $document->{'is404'} eq 1 ) {
 	);
 }
 
+# Initialize Html document with all the stuff...
 print "<!doctype html public \"-//W3C//DTD HTML 4.01 Transitional//EN\"";
 print "\"http://www.w3.org/TR/1999/REC-html401-19991224/loose.dtd\">\n";
 print "<html>\n";
-print "<!-- this document was produced with the (in)famous Cms FDT v. 5.0 -->\n";
+print "<!-- this document was produced with the (in)famous Cms FDT v. 5.1 -->\n";
 print "<!-- by D.Bianchi (c) 2008-averyfarawaydate -->\n";
 print "<!-- see http://www.soft-land.org/ -->\n";
 print "<!-- currently loggedin as ".$userid." - ".$user." - root:".$isroot." - ".$preferredlanguage ."-->\n";
@@ -316,6 +272,7 @@ print "<title>".$document->{'title'}."</title>\n";
 print "<link rel='stylesheet' href='".$css."' type='text/css'>\n";
 print "<link rel='shortcut icon' href='/img/".$host."/favicon.ico' type='image/x-icon'>\n";
 
+# include all the required scripts (if any)
 foreach my $script (@scripts) {
 	print "<script type='text/javascript' src='".$script."'></script>\n";
 }
@@ -334,6 +291,7 @@ if($debug) {
 	print STDERR "Found $maindocname<p>\n";
 }
 
+# build link tree, this may or may not be used 
 my $position="<a href='/'>[home]</a>";
 my $tree='';
 if( ! $document->{'isdefault'} ) {
@@ -394,7 +352,7 @@ sub processdoc
 	}
 
 	# build a date with the correct formatting
-	my $docdate=convdate($doc->{'updated'});
+	my $docdate = convdate($doc->{'updated'});
 
 	if($debug) {
 		print STDERR "Processing document: '".$docname."'\n";
@@ -416,7 +374,7 @@ sub processdoc
 
 		chomp($line);
 
-		# replace some variables into the line
+		# replace some variables into the line with the values calculated before
 		my $print=1;
 		$line=~s/<!--title-->/$doc->{'title'}/;
 		$line=~s/<!--data-->/$docdate/i;
@@ -432,6 +390,7 @@ sub processdoc
 		$line=~s/<!--referer-->/<a href="$referer">back<\/a>/i;
 		$line=~s/<!--position-->/$position/i;
 		$line=~s/<!--icon-->/$icon/i;
+		$line=~s/<!--day-->/$dday/i;
 
 		# check if the line is an assignment and load the value
 		if($line=~/<!--[^=-]+-->/) {
@@ -442,8 +401,6 @@ sub processdoc
 			}
 		}
 
-		$line=~s/<!--day-->/$dday/i;
-
 		# check if the line has special meanings
 
 		# load a canned text
@@ -451,7 +408,7 @@ sub processdoc
 			# load and display the text
 			my $inc=$line;
 			$inc=~s/.*<!--getatext=([^-]+)-->.*/$1/i;
-			my $i=getatext($inc);
+			my $i=getatext2($inc,$host,$dbh,$inc,$deflang,$debug,@lang);
 			$line=~s/<!--getatext=$inc-->/$i/i;
 		}
 
@@ -474,6 +431,7 @@ sub processdoc
 			my $i=searchimage($imgid,$param,$link);
 			$line=~s/<!--img=$inc-->/$i/i;
 		}
+
 		# search a video in the system and display it
 		if( $line =~ /<!--video=[^-]+-->/i ) {
 			my $inc=$line;
@@ -495,11 +453,7 @@ sub processdoc
 		# NOTE: I use here the 'main' document, to avoid problems with 
 		# includes and the like.
 		if( $line =~ /<!--prev-->/ ) {
-			if( $debug ) {
-				print STDERR "Searching previous document\n";
-			}
-			
-			my $prev=getprevious($document->{'hostid'},$document->{'groupid'},$document->{'documentid'});
+			my $prev = getprevious($document->{'hostid'},$document->{'groupid'},$document->{'documentid'});
 			$line =~ s/<!--prev-->/$prev/;
 		}
 
@@ -507,9 +461,6 @@ sub processdoc
 		# NOTE: I use here the 'main' document, to avoid problems with 
 		# includes and the like.
 		if( $line =~ /<!--next-->/ ) {
-			if( $debug ) {
-				print STDERR "Searching next document\n";
-			}
 			my $next=getnext($document->{'hostid'},$document->{'groupid'},$document->{'documentid'});
 			$line =~ s/<!--next-->/$next/;
 		}
@@ -694,8 +645,7 @@ sub searchdoc() {
 		print STDERR "Searching for ".$hostid." - ".$groupid."/".$documentid. " with ignore=".$ignore."\n";
 	}
 
-	# Now, since I added the Links, is going to be easy: I just look up
-	# in the links
+	# Now, since I added the Links, is going to be easy: I just look it up in the links
 	my $q=(q{
 		select d.hostid as hostid, d.groupid as groupid, d.documentid as documentid,
 		d.template as template, c.filename as cssid, d.icon as icon, d.rssid as rssid, 
@@ -843,7 +793,9 @@ sub searchdoc() {
 			}
 		}
 	}
-	$r=searchtherightone($sth);
+
+	# search the correct document for the language and preference of the user
+	$r=searchtherightone2($sth,$deflang,$debug,@lang);
 	$sth->finish();
 	if($debug) {
 		print STDERR "got doc $r->{'title'}\n";
@@ -913,7 +865,7 @@ sub author()
 		$sth->finish();
 		exit 0;
 	}
-	return searchtherightone($sth);
+	return searchtherightone2($sth,$deflang,$debug,@lang);
 
 }
 
@@ -937,7 +889,7 @@ sub include
 		exit 0;
 	}
 
-	return searchtherightone($sth);
+	return searchtherightone2($sth,$deflang,$debug,@lang);
 }
 
 # Generate a list of pages with a canned template, including an excerpt
@@ -1057,7 +1009,7 @@ sub dolist
 			my $s=$dbh->prepare($q);
 			if($s->execute($hostid,$g,$r->{'documentid'}) ) {
 				# ok, get the right one...
-				my $r=searchtherightone($s);
+				my $r=searchtherightone2($s,$deflang,$debug,@lang);
 				processdoc($r,$tpl);
 
 			} else {
@@ -1070,7 +1022,7 @@ sub dolist
 		if( $debug ) {
 			print STDERR "no documents found!\n";
 		}	
-		print getatext('nothinghere','nothing here');
+		print getatext2('nothinghere',$host,$dbh,'nothing here',$deflang,$debug,@lang);
 	}
 	$sth->finish();
 	return;
@@ -1214,7 +1166,7 @@ sub guests
 			if( $s->rows() > 0 ) {
 
 				# ok, get the right one...
-				my $r=searchtherightone($s);
+				my $r=searchtherightone2($s,$deflang,$debug,@lang);
 
 				if( $debug ) {
 					print STDERR "Current author: $author, new author: $r->{'author'}\n";
@@ -1228,7 +1180,7 @@ sub guests
 
 					$author=$r->{'author'};
 					print "<p><div class='guests'>";
-					print getatext('by','by')." ";
+					print getatext2('by',$host,$dbh,'by',$deflang,$debug,@lang)." ";
 					print $r->{'name'}.": ";
 					print "</div>\n";
 				}
@@ -1254,6 +1206,7 @@ sub journal
 	my ($hostid,$group,$tpl,$l)=@_;
 	my $t;
 
+    # get the group id
 	my $g=getgroupidfrompath($hostid,$group,$dbh);
 	
 	if( $debug ) {
@@ -1291,6 +1244,7 @@ sub journal
 		$t->{'created'}='01-01-2008';
 	}
 
+    # search all the documents
 	my $q=(q{
 	select distinct 
 	d.groupid as groupid,d.documentid as documentid ,d.updated as updated from 
@@ -1321,6 +1275,7 @@ sub journal
 		return;
 	}
 
+    # ok, found some documents
 	if( $sth->rows > 0 ) {
 
 		if($debug) {
@@ -1330,6 +1285,7 @@ sub journal
 		my $count=0;
 		my $did;
 
+        # loop and build the actual list
 		while( my $r=$sth->fetchrow_hashref()) {
 
 			next if($did eq $r->{'documentid'});
@@ -1359,7 +1315,8 @@ sub journal
 				print "Error searching for documents!\n";
 				exit 0;
 			}
-			my $x=searchtherightone($s);
+            # locate the correct one (language)
+			my $x=searchtherightone2($s,$deflang,$debug,@lang);
 
 			# show data
 			processdoc($x,$t);
@@ -1377,7 +1334,7 @@ sub journal
 # try to get the 'next' page and return the id
 sub getnext
 {
-	my ($hostid,$groupid,$docid)=@_;
+	my ($hostid, $groupid, $docid)=@_;
 	my $text='';
 
 	if($debug) {
@@ -1399,11 +1356,10 @@ sub getnext
 		$q.=" and approved=true";
 	}
 	$q.=" order by l.groupid,l.documentid asc limit 1";
-
-	my $next=getatext('next','next');
+	my $next = getatext2('next',$hostid, $dbh,'next',$deflang,$debug,@lang);
 	my $sth=$dbh->prepare($q);
 
-	if( ! $sth->execute($hostid,$groupid,$docid) ) {
+	if( ! $sth->execute($hostid, $groupid, $docid) ) {
 		$sth->finish();
 		print "Can't search for the next document!\n";
 		exit 0;
@@ -1427,13 +1383,13 @@ sub getnext
 }
 
 # try to get the 'previous' page and return the id
-sub getprevious
+sub getprevious()
 {
-	my ($hostid,$groupid,$docid)=@_;
+	my ($hostid, $groupid, $docid) = @_;
 	my $text="";
 
 	if($debug) {
-		print STDERR "Searching previous document for ".$groupid."/".$docid."\n";
+		print STDERR "Searching previous document for ".$hostid."/".$groupid." / ".$docid."\n";
 	}
 
 	my $q=(q{
@@ -1447,14 +1403,15 @@ sub getprevious
 		d.hostid=? and d.groupid=? and d.documentid < ?
 		and d.display=true
 	});
+
 	if( $ignore==0 ) {
 		$q.=" and dc.approved=true";
 	}
 	$q.=" order by l.groupid,l.documentid desc limit 1";
 
-	my $next=getatext('previous','previous');
-	my $sth=$dbh->prepare($q);
-	if( ! $sth->execute($hostid,$groupid,$docid) ) {
+	my $next = getatext2('previous', $hostid, $dbh, 'previous', $deflang, $debug, @lang);
+	my $sth = $dbh->prepare($q);
+	if( ! $sth->execute($hostid, $groupid, $docid) ) {
 		$sth->finish();
 		print "Can't search for the next document!\n";
 		exit 0;
@@ -1507,7 +1464,12 @@ sub showcomments
 	# show comments count
 	my ($c)=$sth->fetchrow_array();
 	$sth->finish();
+
+	# show the comments header/link to add a new one etc.
 	printmsgheader($c,$hostid,$groupid,$docid);
+
+	# print a separator between the header and the messages - default is a line.
+	print getatext2('msgseparator',$host,$dbh,'<hr>',$deflang,$debug,@lang);
 
 	# scan the comments with parentid=0 for this document.
 	scancommentbyparentid(0,$hostid,$groupid,$docid);
@@ -1526,34 +1488,42 @@ sub printmsgheader
 {
 	my ($c,$hostid,$groupid,$docid)=@_;
 
-	my $winw=getconfparam('commedit-fw',$dbh);
-	my $winh=getconfparam('commedit-fh',$dbh);
+	my $winw=getconfparam('commedit-fw',$dbh,900);
+	my $winh=getconfparam('commedit-fh',$dbh,700);
 	my $mess;
 
-	print "<h6>";
+	print "<div>\n";
+	
 	if( $c == 1 ) {
-		print getatext('onemess','one message');
+		print getatext2('onemess',$host,$dbh,'one message',$deflang,$debug,@lang);
 	} elsif( $c == 0 )  {
-		print getatext('nomess','no messages');
+		print getatext2('nomess',$host,$dbh,'no messages',$deflang,$debug,@lang);
 	} else {
-		print $c;
-		print " ";
-		print getatext('moremess','messages');
+		# multiple messages
+		my $msg = getatext2('moremess',$host,$dbh,'%d messages',$deflang,$debug,@lang);
+		printf($msg,$c);
 	}
 
 	if( $document->{'comments'} ) {
-		print " <span class='newcomment'>";
-		print "<a href='/cgi-bin/postnew.pl?hostid=".$hostid."&groupid=".$groupid."&documentid=".$docid."' target='_blank'>";
-		print getatext('postnew','post');
-		print "</a>";
-		print "</span>";
+		print "&nbsp;<span class='newcomment'>";
+		print "<a href=''>";
+        print "<span onclick='openwindow(\"/cgi-bin/postnew.pl?hostid=".$hostid."&groupid=".$groupid."&documentid=".$docid."\",\"\",".$winw.",".$winh.")' ".
+        " onmouseover=\"style.cursor='pointer'\">";
+		print getatext2('postnew',$host,$dbh,'post',$deflang,$debug,@lang);
+		print "</a></span>";
+
+		# trick for "screen readers" and the like: add an invisilbe link to the same form. this because
+		# screen readers, apparently, can' handle jscript that open windows.
+        print "<a class='invisible' href='/cgi-bin/postnew.pl?hostid=".$hostid."&groupid=".$groupid."&documentid=".$docid."'>";
+        print getatext2('postnew',$host,$dbh,'post',$deflang,$debug,@lang);
+        print "</a>";
 	} else {
-		print " <span class='newcomment'>";
-		print getatext('closed',' this document does not accept new posts');
+		print "&nbsp;<span class='newcomment'>";
+		print getatext2('closed',$host,$dbh,' this document does not accept new posts',$deflang,$debug,@lang);
 		print "</span>";
 	}
-	print "</h6>\n";
-	print "<hr>\n";
+	print "</div>\n";
+
 }
 
 # loop through the comments with a given parentid for threading
@@ -1613,8 +1583,8 @@ sub showasinglecomment
 	}
 
 	# width and height of the edit window
-	my $winw=getconfparam('commedit-fw',$dbh);
-	my $winh=getconfparam('commedit-fh',$dbh);
+	my $winw=getconfparam('commedit-fw',$dbh,900);
+	my $winh=getconfparam('commedit-fh',$dbh,600);
 	my $msg;
 
 	# build a ref here
@@ -1632,21 +1602,28 @@ sub showasinglecomment
 		print "alt=\"".$c->{'username'}."\" align='left'>";
 	}
 	print "<p>\n";
-	print getatext('by','by')." ";
-	print "<b>".$c->{'username'}."</b>";
-	print getatext('posted','posted')." ";
+    print "<b>".$c->{'title'}."</b> ";
+	print getatext2('by',$host,$dbh,'by',$deflang,$debug,@lang)." ";
+	print "<b>".$c->{'username'}."</b> ";
+	print getatext2('posted',$host,$dbh,'posted',$deflang,$debug,@lang)." ";
 	print convdate($c->{'created'});
+
 	if( $document->{'comments'} ) {
 		# answer
 		print " - ";
 		print "<span class='command'>";
-		print "<a href='/cgi-bin/postnew.pl?hostid=".$c->{'hostid'}."&groupid=".$c->{'groupid'}."&documentid=";
-		print $c->{'documentid'}."&commentid=".$c->{'commentid'};
-		print "&parentid=".$c->{'parentid'}."' target='_blank'>";
-		print getatext('answer','answer');
-		print "</a></span>";
+        print "<a href=''>";
+        print "<span onclick='openwindow(\"/cgi-bin/postnew.pl?hostid=".$c->{'hostid'}."&groupid=".$c->{'groupid'}."&documentid=".$c->{'documentid'}."&commentid=";
+        print $c->{'commentid'}."&parentid=".$c->{'parentid'}."\",\"\",".$winw.",".$winh.")' onmouseover=\"style.cursor='pointer'\">";
+		print getatext2('answer',$host,$dbh,'answer',$deflang,$debug,@lang);
+		print "</span></a></span>";
+        print "<a class='invisible' href='/cgi-bin/postnew.pl?hostid=".$c->{'hostid'}."&groupid=".$c->{'groupid'}."&documentid=".$c->{'documentid'}."&commentid=";
+        print $c->{'commentid'}."&parentid=".$c->{'parentid'}."'>";
+		print getatext2('answer',$host,$dbh,'answer',$deflang,$debug,@lang);
+        print "</a>";
 	}
-	print "</p>\n";
+    print "</p>\n";
+
 	print "<div class='msgtext'>";
 	print processthecomment($c->{'content'},$dbh);
 	print "</div>\n";
@@ -1750,6 +1727,7 @@ sub searchimage
 sub searchvideo
 {
 	my $vidid=shift;
+
 	my $q='select filename from images where hostid=? and imageid=?';
 	my $x='video '.$vidid.' not found';
 
@@ -1768,27 +1746,17 @@ sub searchvideo
 			print STDERR "found '".$r->{'filename'}."'\n";
 		}
 
-		$x="<a style='display:block;width:520px;height:330px;' id='player'> </a>\n";
-		$x.="<script language='JavaScript'>\n";
-		$x.="\$f('player', '/img/flowplayer-3.2.8.swf',{ \n";
-		$x.="clip:{\n";
-		$x.="     url: '/img/".$host."/".$r->{'filename'}."',\n";
-		$x.="     autoPlay: false,\n";
-		$x.="     autoBuffer: true,\n";
-		$x.="},\n";
-		$x.="plugins: {\n";
-		$x.="controls: {\n";
-		$x.="url:'/img/flowplayer.controls-3.2.8.swf',\n";
-		$x.="timeColor: '#980118',\n";
-		$x.="all: false,\n";
-		$x.="play: true,\n";
-		$x.="scrubber: true,\n";
-		$x.="allowfullscreen: true,\n";
-		$x.="}  \n";
-		$x.="}\n";
-		$x.="});\n";
-		$x.="</script>\n";
+        # check if the file exists, otherwise is a moot point
+        my $fullpath='/img/'.$host.'/'.$r->{'filename'};
 
+        if (-f $fullpath) {
+            # ok, I can show it
+            $x = "<video width='800' controls>\n";
+            $x .= "<source src='/img/".$host."/".$r->{'filename'}."' type='video/mp4'>\n";
+		    $x .= "</video>\n";
+        } else {
+            $x = '<!-- video $vidid was not found -->';
+        }
 	}
 	$sth->finish();
 	if( $debug ) {
@@ -1797,83 +1765,14 @@ sub searchvideo
 	return $x;
 }
 
-# Get a text from the 'deftexts' table
-sub getatext 
-{
-	my $textid=shift;
-	my $default=shift;
-	my $q='select * from deftexts where hostid=? and textid=?';
-	my $x;
-
-	if( $debug ) {
-		print STDERR "Searching default text for '".$textid."'\n";
-	}
-
-	my $sth=$dbh->prepare($q);
-	$sth->execute($host,$textid);
-	if( $sth->rows > 0 ) {
-		if( $debug ) {
-			print STDERR "Searching for the right one '".$textid."'\n";
-		}	
-
-		my $r=searchtherightone($sth);
-		$x=$r->{'content'};
-	} else {
-		$x=$default;
-	}
-	$sth->finish();
-	return $x;
-}
-
-# Search into a dataset of documents with language, the one that matches
-# the preferred language of the user. Otherwise, it returns the default one.
-sub searchtherightone
-{
-	my $sth=shift;
-	my $x;
-
-	# ok, we've got something...
-	# see if there is one in the correct language
-	my $r=$sth->fetchall_hashref('language');
-
-	# check if there is a default language, if so, load it as default answer
-	if( $r->{$deflang} ) {
-		$x=$r->{$deflang};
-	} else {
-		# no default language available for this... thing. Get the one that exists.
-		foreach my $key ($r) {
-			for my $id ( keys %{$key} ) {
-				$x=$r->{$id};
-			}
-		}
-	}
-
-	# loop on all user's defined languages and see if there is a match
-	foreach my $l (@lang) {
-		if( $r->{$l}->{'language'} ) {
-			# found a match!
-			if($debug) {
-				print STDERR "Found right language '".$l."' for the document '".$r->{$l}->{'title'}."'\n";
-			}
-			$x=$r->{$l};
-			return $x;
-		}
-	}
-
-	# return the default or the 'first one'
-	if($debug) {
-		print STDERR "Returning default language for $x->{'title'}\n";
-	}
-	$sth->finish();
-	return $x;
-}
-
 # Convert a date into the right format
 sub convdate
 {
-	my $date=shift;
-	my $format=getatext('dateformat','%d/%m/%Y %H:%M');
-	my $d=str2time($date);
+	my $date = shift;
+
+	my $format = getatext2('dateformat',$host, $dbh,'%d/%m/%Y %H:%M',$deflang,$debug,@lang);
+	my $d = str2time($date);
+
 
 	return time2str($format,$d);
 }
@@ -1898,11 +1797,11 @@ sub searchforcomments
 	}
 	$r->finish();
 	if($s == 0) {
-		$rt=getatext('nomess','no messages');
+		$rt=getatext2('nomess',$host,$dbh, 'no messages', $deflang, $debug, @lang);
 	} elsif( $s == 1 ) {
-		$rt=getatext('onemess','one message');
+		$rt=getatext2('onemess',$host, $dbh, 'one message', $deflang, $debug, @lang);
 	} else {
-		$rt=$s . " " . getatext('moremess','messages');
+		$rt = sprintf(getatext2('moremess',$host,$dbh,'%d messages',$deflang,$debug,@lang),$s);
 	}
 	return $rt;
 }
@@ -1911,10 +1810,9 @@ sub searchforcomments
 sub setpreferredlang()
 {
 	my $language;
-	#=include('login');
 	my @llist = split(/ /,getconfparam('languages',$dbh));
 
-	$language->{'content'}=getatext('getlangprompt','Set language to:');
+	$language->{'content'}=getatext2('getlangprompt',$host,$dbh,'Set language to:',$deflang,$debug,@lang);
 	$language->{'fragid'}='getlangprompt';
 	$language->{'language'}=$deflang;
 	$language->{'name'}='getlangprompt';
@@ -2061,138 +1959,142 @@ sub getfeed
 sub searches
 {
 
-	# swish seems to have disappeared...
-	return;
+	# get the template (if specified)
+	my $tpl=shift;
+	my $t;
 
-#	# get the template (if specified)
-#	my $tpl=shift;
-#	my $t;
-#
-#	# get the position of the index
-#	my $swishdir=getconfparam('swishdir',$dbh);
-#	if( ! $swishdir || ! -d $swishdir )  {
-#		return;
-#	}
-#
-#	# the index is in a subdir of $swishdir
-#	my $index=$swishdir."/".$host."/index.swish-e";
-#	if( ! -f $index ) {
-#		return;
-#	}
-#	
-#	my $words=$query->param('words');
-#	if( $words eq '' ) {
-#		return;
-#	}
-#
-#	if( $debug ) {
-#		print STDERR "Doing search with template '".$tpl."'\n";
-#	}
-#
-#	if( $tpl ) {
-#
-#		# make a default template
-#		$t->{'templateid'}='searchlist';
-#		$t->{'title'}='searchlist';
-#		$t->{'language'}=$deflang;
-#		$t->{'content'}=(q{
-#		<p>
-#		<div class='doctitle'>
-#		<a href='<!--docname-->'><!--title--></a>
-#		<!--stars-->
-#		</div>
-#		<div class='docdetails'>
-#		<!--getatext=by-->
-#		<!--field=name-->
-#		<!--getatext=updated-->
-#		<!--updated-->
-#		-
-#		<!--numcomments-->
-#		</div>
-#		<div class='docexcerpt'>
-#		<!--excerpt-->
-#		</div>
-#		</p>
-#		});
-#		$t->{'name'}='default search list';
-#		$t->{'updated'}='01-01-2008';
-#		$t->{'created'}='01-01-2008';
-#	} else {
-#		# load the template
-#		$t=loadtpl($tpl);
-#	}
-#
-#	# build the Swish object to search the index
-#	my $swish=SWISH::API->new($index);
-#	$swish->abort_last_error if $swish->Error;
-#
-#	my $result=$swish->query($words);
-#	$swish->abort_last_error if $swish->Error;
-#	my $hits=$result->hits;
-#
-#	if( ! $hits ) {
-#		print "<p><b>\n";
-#		print getatext('nothingfoundfor','No document matches your query.');
-#		print "</b></p>\n";
-#	} else {
-#		my $f=getatext('docsfounds','Found %d documents matching your query.');
-#		print "<p><b>\n";
-#		printf($f, $hits );
-#		print "</b></p>\n";
-#
-#		# prepare to search for the document's informations
-#		my $q=(q{
-#			select 
-#				d.*, dc.language, dc.title, dc.excerpt, u.name 
-#			from 
-#				documents d, documentscontent dc, users u, links l
-#			where 
-#				dc.hostid=l.hostid and
-#				dc.groupid=l.groupid and
-#				dc.documentid=l.documentid and
-#				d.author=u.email and
-#				d.hostid=l.hostid and
-#				d.groupid=l.groupid and
-#				d.documentid=l.documentid and
-#				dc.approved=true and 
-#				l.link=?
-#		});
-#		my $r=$dbh->prepare($q);
-#
-#		while( my $tok=$result->next_result ) {
-#
-#			my $rank=$tok->property("swishrank");
-#			my $title=$tok->property("swishtitle");
-#			my $updated=$tok->property("swishlastmodified");
-#			my $doc=$tok->property("swishdocpath");
-#
-#			# if the doc contains 'http...' it is not a
-#			# relative link so I have to process it
-#			if( $doc=~/host=/ ) {
-#				$doc=~s/^.*doc=//;
-#			}
-#
-#			my $stars;
-#
-#			# compute number of 'stars'
-#			$stars=int($rank/200);
-#
-#			# if too long a document or not enough stars, don't display it.
-#			if( length $title <= 60 && $stars > 0 ) {
-#
-#				# search the doc
-#				my $d=$doc;
-#				$d=~s/^http:\/\/[^\/]+\///;
-#				$r->execute($d);
-#
-#				if( $r->rows > 0 ) {
-#					# get one document with the right language
-#					my $x=searchtherightone($r);
-#					$x->{'stars'}=$stars;
-#					processdoc($x,$t);
-#				} 
-#				$r->finish();
-#			}
-#		}
-#	}
+	# get the position of the index
+	my $swishdir=getconfparam('swishdir',$dbh);
+	if( ! $swishdir || ! -d $swishdir )  {
+		return;
+	}
+
+	# the index is in a subdir of $swishdir
+	my $index=$swishdir."/".$host."/index.swish-e";
+	if( ! -f $index ) {
+		return;
+	}
+	
+	my $words=$query->param('words');
+	if( $words eq '' ) {
+		return;
+	}
+
+	if( $debug ) {
+		print STDERR "Doing search with template '".$tpl."'\n";
+	}
+
+	if( $tpl ) {
+
+		# make a default template
+		$t->{'templateid'}='searchlist';
+		$t->{'title'}='searchlist';
+		$t->{'language'}=$deflang;
+		$t->{'content'}=(q{
+		<p>
+		<div class='doctitle'>
+		<a href='<!--docname-->'><!--title--></a>
+		<!--stars-->
+		</div>
+		<div class='docdetails'>
+		<!--getatext=by-->
+		<!--field=name-->
+		<!--getatext=updated-->
+		<!--updated-->
+		-
+		<!--numcomments-->
+		</div>
+		<div class='docexcerpt'>
+		<!--excerpt-->
+		</div>
+		</p>
+		});
+		$t->{'name'}='default search list';
+		$t->{'updated'}='01-01-2008';
+		$t->{'created'}='01-01-2008';
+	} else {
+		# load the template
+		$t=loadtpl($tpl);
+	}
+
+	# build the Swish object to search the index
+	my $swish=SWISH::API->new($index);
+	$swish->abort_last_error if $swish->Error;
+
+	my $result=$swish->query($words);
+	$swish->abort_last_error if $swish->Error;
+	my $hits=$result->hits;
+
+	if( ! $hits ) {
+		print "<p><b>\n";
+		print getatext2('nothingfoundfor',$host,$dbh,'No document matches your query.',$deflang,$debug,@lang);
+		print "</b></p>\n";
+	} else {
+		my $f=getatext2('docsfounds',$host,$dbh,'Found %d documents matching your query.',$deflang,$debug,@lang);
+		print "<p><b>\n";
+		printf($f, $hits );
+		print "</b></p>\n";
+
+		# prepare to search for the document's informations
+		my $q=(q{
+			select 
+				d.*, dc.language, dc.title, dc.excerpt, u.name 
+			from 
+				documents d, documentscontent dc, users u, links l
+			where 
+				dc.hostid=l.hostid and
+				dc.groupid=l.groupid and
+				dc.documentid=l.documentid and
+				d.author=u.email and
+				d.hostid=l.hostid and
+				d.groupid=l.groupid and
+				d.documentid=l.documentid and
+				dc.approved=true and 
+				l.link=?
+		});
+		my $r=$dbh->prepare($q);
+
+		while( my $tok=$result->next_result ) {
+
+
+			my $rank=$tok->property("swishrank");
+			my $title=$tok->property("swishtitle");
+			my $updated=$tok->property("swishlastmodified");
+			my $doc=$tok->property("swishdocpath");
+
+            $doc =~ s/ .*//;
+
+			# if the doc contains 'http...' it is not a relative link so I have to process it
+			if( $doc=~/host=/ ) {
+				$doc=~s/^.*doc=//;
+			}
+
+			my $stars;
+
+			# compute number of 'stars'
+			$stars=int($rank/200);
+
+			# if too long a document or not enough stars, don't display it.
+			if( length $title <= 60 && $stars > 0 ) {
+
+				# search the doc
+				my $d=$doc;
+				$d=~s/^https?:\/\/[^\/]+\///;
+
+                $d=~s/ .*//;
+                if ($debug) {
+                    print STDERR "Searching: '".$d."'\n";
+                }
+				$r->execute($d);
+
+				if( $r->rows > 0 ) {
+					# get one document with the right language
+					my $x=searchtherightone2($r,$deflang,$debug,@lang);
+					$x->{'stars'}=$stars;
+					processdoc($x,$t);
+				} 
+				$r->finish();
+			}
+		}
+	}
 }

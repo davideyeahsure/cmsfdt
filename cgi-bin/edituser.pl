@@ -1,17 +1,17 @@
 #!/usr/bin/perl
 #
-# Edit user screen for CMS FDT 5.1.1
+# Edit user screen for CMS FDT 4.5
 
 use strict;
 use DBI;
 use CGI qw/:standard/;
 use CGI::Cookie;
+#use Shell qw(dig);
 use Config::General;
 use Date::Parse;
 use Date::Format;
-use lib (".");
 
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
 my $myself=script_name();
 my $query=new CGI();

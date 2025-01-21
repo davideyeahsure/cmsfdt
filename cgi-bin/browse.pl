@@ -12,10 +12,9 @@ use Date::Parse;
 use Digest::MD5  qw(md5 md5_hex md5_base64);
 use XML::RSS;
 use File::Temp qw/tempfile/;
-use lib (".");
 
 # load common lib
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
 my $today=time2str("%Y-%m-%d %H:%M",time);
 my $myself=script_name();
@@ -45,7 +44,8 @@ my $q=(q{
 	from images i, users u
 	where
 	i.hostid=? and
-	i.author=u.email
+	i.author=u.email and
+    i.alternate like '%image%'
 	order by i.imageid
 });
 

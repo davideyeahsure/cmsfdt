@@ -1,15 +1,15 @@
 #!/usr/bin/perl
-# Registration/login screen for cms fdt 5.1.1
+# Registration/login screen
 
 use strict;
 use DBI;
 use CGI qw/:standard/;
+#use Shell qw(dig);
 use Config::General;
 use Date::Parse;
 use Date::Format;
-use lib (".");
 
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
 my $myself=script_name();
 my $configfile="./cms50.conf";
@@ -149,13 +149,13 @@ if( $res eq 'ok' && $chkusr ) {
 	);
 	print $query->header(
 		-type   => 'text/html',
-		-expires=> '+1h',
+		-expires=> '0m',
 		-cookie => [$cookie]
 	);
 } else {
 	print $query->header(
 		-type   => 'text/html',
-		-expires=> '+1h'
+		-expires=> '0m'
 	);
 }
 

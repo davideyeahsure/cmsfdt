@@ -1,4 +1,9 @@
 #!/usr/bin/perl
+#
+# Window to add/edit a comment to the system, this module is separated from the
+# 'normal' DOC (frontend) because this can INSERT data in the database and not just
+# 'read' data. As such it could have a different account to access the db to
+# partition the system.
 
 use strict;
 use DBI;
@@ -9,9 +14,8 @@ use Date::Format;
 use Date::Parse;
 use URI::Find;
 use Mail::SpamAssassin;
-use lib (".");
 
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
 my $myself=script_name();
 my $query= new CGI();
@@ -46,6 +50,8 @@ my $sth;
 # get the info about the user
 ($userid,$user,$icon,$isroot) = getloggedinuser($dbh);
 
+# now I need to get the default language and the selected language if any
+
 # if the user isn't logged in, check if the 'anonymous' user does exists
 if( $userid eq 'NONE' ) {
 
@@ -54,27 +60,31 @@ if( $userid eq 'NONE' ) {
 	$r->execute();
 	my ($c)=$r->fetchrow_array();
 	if( $c == 0 ) {
+        # no anonymous user in this system
+        my $noanomsg = getatext2('noanouser',$hostid,$dbh,'Sorry, posting anonymously is not possible in this system. You\'ll have to login.',,,$debug);
 		print "<script>\n";
-		print "window.alert(\"";
-		print "Sorry, posting anonymously is not possible in this system. You'll have to login.";
-		print "\");\n";
+		print "window.alert(\"$noanomsg\");\n";
 		print "window.close();\n";
 		print "</script>\n";
 	}
 
 }
 
-# show the header.
+# show the header and initialize the html doc.
 printheader($dbh);
 
 # If the user hasn't logged in, he can post but warn him.
 if($userid eq 'NONE' && $mode eq '') {
 
-	print "<div class='warning'>\n";
-	print "<b>Warning!</b>:\n";
-	print "You are posting as 'Anonymous'. \n";
-	print "If you want to post more than once, maybe is better if you ";
-	print "login or register.</div>\n";
+    # default warning
+    my $def = "<div class='warning'>\n";
+    $def .= "<b>Warning:</b>\n";
+    $def .= "You are posting as 'anonymous', if you want to post more than once maybe you should <b>login</b> or <b>register</b>.\n";
+    $def .= "</div>\n";
+
+    print "<div class='warning'>\n";
+    print getatext2('anouser',$hostid,$dbh,$def,,,$debug);
+    print "</div>\n";
 
 	$userid='anonymous@localhost';
 	$user='';
@@ -84,6 +94,7 @@ if($userid eq 'NONE' && $mode eq '') {
 
 }
 
+# assign the user
 if($userid eq 'NONE' ) {
 	$userid='anonymous@localhost';
 }
@@ -127,6 +138,7 @@ my $quote='';
 # show the title
 if($commentid ne '' && $mode ne 'doedit' ) {
 
+    # we're either editing an existing comment or answering somebody's else...
 	if( $mode eq 'edit' ) {
 
 		# editing
@@ -163,11 +175,12 @@ if($commentid ne '' && $mode ne 'doedit' ) {
 
 } else {
 
+    # post new comment
 	printcommenttitle("Posting on \"".$document->{'title'}."\"",
 		$user,$icon,$dbh);
 }
 
-# get the signature for the user (if the user is)
+# get the signature for the user (if the user is known)
 my $sign='';
 my $q="select signature from users where email=?";
 my $x=$dbh->prepare($q);
@@ -190,7 +203,7 @@ if($mode eq 'add') {
 
 	my $res;
 
-	# checking the comment
+	# check the comment for spam
 	my $spam=checkthecomment();
 
 	# If I am root, the moderator or the forum is not moderated, and the post
@@ -246,6 +259,7 @@ if($mode eq 'add') {
 		$username,$clientip,$approved,$subject,$spam,$spamscore);
 	}
 
+    # success?
 	if( ! $res ) {
 		print "<script>\n";
 		print "window.alert(\"";
@@ -255,6 +269,7 @@ if($mode eq 'add') {
 		print "window.close();\n";
 		print "</script>\n";
 	} else {
+        # succes!
 		if( ! $approved ) {
 			print "<script>\n";
 			print "window.alert(\"";
@@ -320,7 +335,7 @@ if($mode eq 'add') {
 	} else {
 		print "<input type='hidden' name='mode' value='add'>\n";
 	}
-	print "<table width='100%' border='0' cellspacing='0' ";
+	print "<table width='100%' height='68%' border='0' cellspacing='0' ";
 	print "cellpadding='3px' bgcolor='lightgrey'>\n";
 	print "<tr>\n";
 	print "<td>Author:</td>\n";
@@ -333,7 +348,7 @@ if($mode eq 'add') {
 	print "<tr valign=top>";
 	print "<td>Message:</td>";
 	print "<td>\n";
-	print "<textarea name='comment' cols='100%' rows='10'>\n";
+	print "<textarea name='comment' cols='100%' rows='100%'>\n";
 	if($quote ne '') {
 		print $quote;
 	}
@@ -346,11 +361,10 @@ if($mode eq 'add') {
 	print "})\n";
 	print "CKEDITOR.replace('comment',\n";
 	if( $isroot ) {
-		print "{ toolbar: [['Source','Bold','Italic','Underline','Smiley']], startupMode: 'wysiwyg', width: '90%', ";
+		print "{ filebrowserBrowseUrl: '/cgi-bin/browse.pl?hostid=".$hostid."', startupMode: 'wysiwyg', height:'95%', ";
 	} else {
-		print "{ toolbar: [['Bold','Italic','Underline','Smiley']], startupMode: 'wysiwyg', width: '90%', ";
+		print "{ toolbar: [['Bold','Italic','Underline','Smiley']], startupMode: 'wysiwyg', width: '95%', height:'90%',";
 	}
-	print "height:'200',";
 	print "keystrokes: [[ CKEDITOR.CTRL+66, 'bold' ],[ CKEDITOR.CTRL+73, 'italic' ],[ CKEDITOR.CTRL+85, 'underline' ],[CKEDITOR.CTRL+83,'smiley']";
 	if( $isroot ){
 		print ",[CKEDITOR.CTRL+74,'image']";
@@ -376,6 +390,8 @@ printfooter();
 print "</body>\n";
 print "</html>\n";
 
+
+# check the comment for spam
 sub checkthecomment
 {
 	# do some basic check on the comment and the subject.
@@ -394,10 +410,7 @@ sub checkthecomment
 
 	# no signature if I am in editing
 	if( $mode ne 'doedit' && $sign ne '') {
-		$s=$comment."
-
--- 
-".$sign;
+		$s=$comment."-- ".$sign;
 	} else {
 		$s=$comment;
 	}
@@ -415,7 +428,6 @@ sub checkthecomment
 	my $status=$spamtest->check_message_text($s);
 
 	if( $comment eq '' || $status->is_spam() ) {
-
 		#subject or comment were some junk
 		$spamscore=$status->get_names_of_tests_hit();
 		return 1;

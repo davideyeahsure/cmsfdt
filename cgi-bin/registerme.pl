@@ -10,9 +10,8 @@ use Date::Format;
 use Date::Parse;
 use URI::Find;
 use Mail::SpamAssassin;
-use lib (".");
 
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
 my $myself=script_name();
 my $query= new CGI();

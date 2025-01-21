@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #
-# Backend for the CMS FDT V.5.1.1 - Jan 2021
+# Backend for the CMS FDT V.5.1a
+# New version with PostGres database
 #
 
 use strict;
-use lib (".");
 use DBI;
 use CGI qw/:standard/;
 use CGI::Cookie;
@@ -14,9 +14,10 @@ use Date::Parse;
 use Digest::MD5  qw(md5 md5_hex md5_base64);
 use XML::RSS;
 use File::Temp qw/tempfile/;
+#use Shell qw(dig);
 
 # load common lib
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
 my $today=time2str("%Y-%m-%d %H:%M",time);
 my $myself=script_name();
@@ -1347,7 +1348,12 @@ sub showimages
 	while( my $x=$r->fetchrow_hashref() ) {
 
 		my $metatag='&lt;!--img='.$x->{'imageid'}."--&gt;";
-		my $link="&lt;img src='/img/".$hostid."/".$x->{'filename'}."'&gt;";
+        my $link = "&lt;img src='/img/".$hostid."/".$x->{'filename'}."'&gt;";
+
+        if ($x->{'alternate'} =~ /video/) {
+		    $metatag = '&lt;!--video='.$x->{'imageid'}."--&gt;";
+            $link = "&lt;video width='800' controls&gt;&lt;source src='/img/".$hostid."/".$x->{'filename'}."'&gt;&lt;/video&gt;";
+        }
 
 		my $show;
 		$show="javascript:openwindow(\"".$myself."?mode=editimage&current=$current&";
@@ -1364,7 +1370,11 @@ sub showimages
 
 		print "<td align='center' valign='middle'>";
 		print "<a href='".$show."'>";
-		print "<img src='".$thumbdir."/".$x->{'filename'}."' height='32' border='0' ";
+        if ($x->{'alternate'} =~ /video/) {
+		    print "<img src='".$thumbdir."/video.png' height='32' border='0' ";
+        } else {
+		    print "<img src='".$thumbdir."/".$x->{'filename'}."' height='32' border='0' ";
+        }
 		print "alt='click to edit' title='click to edit'>";
 		print "</a>";
 		print "</td>\n";
@@ -3029,24 +3039,23 @@ sub showeditimageform
 	my $t;
 	my $thumbdir=getconfparam('thumbdir',$dbh);
 
-	if($mode eq 'NEW') {
+	if ($mode eq 'NEW') {
 		$t="Add a new"
 	} else {
 		$t="Edit"
 	}
-	print "<div class='tableheader'>".$t." Image</div>\n";
-	print "Maximum size of picture: ".$imgmaxsize." Kb<br>\n";
+	print "<div class='tableheader'>".$t." Image/Video</div>\n";
+	print "Maximum file size: ".$imgmaxsize." Kb<br>\n";
 
 	# display the edit form
 	print "<form action='".$myself."' method='post' name='editimage' ";
 	print "enctype='multipart/form-data'>\n";
 
-	if($mode eq 'NEW') {
+	if ($mode eq 'NEW') {
 		print "<input type='hidden' name='mode' value='add'>\n";
 	} else {
 		print "<input type='hidden' name='mode' value='edit'>\n";
 	}
-	#print "<input type='hidden' name='imageid' value='".$r->{'imageid'}."'>\n";
 	print "<input type='hidden' name='hostid' value='".$hostid."'>\n";
 	print "<input type='hidden' name='current' value='".$current."'>\n";
 	print "<table bgcolor='lightgrey' width='100%' ";
@@ -3058,7 +3067,7 @@ sub showeditimageform
 	print "</td>\n";
 	print "<td class='msgtext'>\n";
 	if($mode eq 'NEW') {
-		print "<input type='text' name='imageid' value='".$r->{'imageid'}."' width='30' >\n";
+		print "<input type='text' name='imageid' value='".$r->{'imageid'}."' width='30' > (don't use '-' in the ID!)\n";
 	} else {
 		print "<input type='hidden' name='imageid' value='".$r->{'imageid'}."'>\n";
 		print $r->{'imageid'};
@@ -3094,23 +3103,23 @@ sub showeditimageform
 	print "</td>\n";
 	print "</tr>\n";
 
-	print "<tr>\n";
-	print "<td class='msgtext' align='right'>\n";
-	print "preview (click to enlarge)";
-	print "</td>\n";
-	print "<td class='msgtext' colspan='3'>\n";
 	# show preview only if there is a picture
-	if( $r->{'filename'} ne '' ) {
+	if( $r->{'filename'} ne '' && $r->{'alternate'} ne 'video' ) {
+	    print "<tr>\n";
+	    print "<td class='msgtext' align='right'>\n";
+	    print "preview (click to enlarge)";
+	    print "</td>\n";
+	    print "<td class='msgtext' colspan='3'>\n";
 		print "<a href='javascript:openwindow(\"/img/".$hostid."/".$r->{'filename'}."\",\"\",1000,800)'>";
 		print "<img src='/img/".$hostid."/".$thumbdir."/".$r->{'filename'}."' width='64'>";
 		print "</a>";
+	    print "</td>\n";
+	    print "</tr>\n";
 	}
-	print "</td>\n";
-	print "</tr>\n";
 
 	print "<tr>\n";
 	print "<td class='msgtext' align='right'>\n";
-	print "upload new picture";
+	print "upload new image/video";
 	print "</td>\n";
 	print "<td class='msgtext' colspan='3'>\n";
 	print "<input type='file' size='60' name='content'>\n";
@@ -5589,8 +5598,10 @@ sub doeditimage
 	my $destdir=getconfparam('imgdir',$dbh);
 	my $thumbdir=getconfparam('thumbdir',$dbh);
 	my $mkthumb=getconfparam('mkthumb',$dbh);
-	my $id=checkid($query->param('imageid'));
+    my $id=$query->param('imageid');
+    $id=checkid($id);
 	my $content=$query->param('content');
+    my $alternate = 'image';
 	my $msg='';
 	my $ext='';
 
@@ -5678,8 +5689,24 @@ sub doeditimage
 		}
 		`cp $uploaddir/$filename $destfile`;
 		`$mkthumb $destfile $thumb`;
+    } elsif ( $type =~ /MPEG v4/ ) {
+        # movie
+        $ext='.mp4';
+        $destfile .= $ext;
+        $thumb = 'video.png';
+        $alternate = 'video';
+		if($debug) {
+			print "Destination file: ".$destfile."<br>\n";
+			print "Thumbnail file: ".$thumb."<br>\n";
+		}
+		# move the file in the correct dir
+		if( $query->param('mode') eq 'edit' ) {
+			`rm -f $destfile`;
+		}
+		`cp $uploaddir/$filename $destfile`;
+        # the thumbnail is always the same picture.
 	} else {
-		$msg="The uploaded file does not appear to be an image.";
+		$msg="The uploaded file ($uploaddir/$filename) does not appear to be an image or a movie ($type).";
 	}
 
 	if( $msg ) {
@@ -5692,8 +5719,8 @@ sub doeditimage
 	if( $query->param('mode') eq 'add' ) {
 		$q=(q{
 		insert into images
-		(hostid,imageid,author,created,filename)
-		values (?,?,?,?,?)
+		(hostid,imageid,author,created,filename,alternate)
+		values (?,?,?,?,?,?)
 		});
 	} else {
 		$q=(q{
@@ -5711,7 +5738,8 @@ sub doeditimage
 			$id,
 			$userid,
 			$today,
-			$id.$ext
+			$id.$ext,
+            $alternate
 		);
 	} else {
 		$result= $r->execute(
@@ -6806,15 +6834,16 @@ sub printtitle
 
 # Checking functions (to remove some errors...)
 
-# remove all the spaces from the ID
+# remove all the spaces from the ID and replace '-' with '_'
 sub checkid
 {
 	my $id=shift;
 	if($debug) {
 		print "Checking $id<br>\n";
 	}
-	$id=~s/ //g;
-	if($debug) {
+	$id =~ s/ //g;
+    $id =~ s/-/_/g;
+	if ($debug) {
 		print "Returning $id<br>\n";
 	}
 	return $id;

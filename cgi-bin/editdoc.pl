@@ -1,8 +1,12 @@
 #!/usr/bin/perl
-# CMS FDT 5.1.1 - Edit content using CKEditor 4.
-# This form can edit a document, template, fragment, css or comment.
-# actually, at the current state, comments have their own little bit.
+# CMS FDT 5.1 - Edit content using CKEditor 4.
 #
+# This form can edit a document, template, fragment, css etc.
+# Comments are managed by a different form however.
+#
+# Since the 'doc' (frontend) part of the cms is used to display the site and not much more,
+# that part is a read-only one, this is a WRITE part, so is in a separate bit on itself
+# to keep the interaction 'safe'.
 
 use strict;
 use DBI;
@@ -11,15 +15,16 @@ use CGI::Cookie;
 use Config::General;
 use Date::Format;
 use Date::Parse;
-use lib (".");
 
-require 'cmsfdtcommon.pl';
+require './cmsfdtcommon.pl';
 
-my $myself=script_name();
-my $query= new CGI();
-my $clientip=$query->remote_host();
-my $today=time2str("%Y-%m-%d",time);
+my $myself = script_name();
+my $query = new CGI();
+my $clientip = $query->remote_host();
+my $today = time2str("%Y-%m-%d",time);
 
+# connect to the database, this could use a different configuration file
+# to have a read-write access instead of a read-only access
 my $dbh=dbconnect("./cms50.conf");
 my $debug=getconfparam('debug',$dbh);
 
@@ -40,7 +45,7 @@ my $sth;
 # get the info about the user
 my ($userid,$user,$icon,$isroot) = getloggedinuser($dbh);
 
-# show the header.
+# show the header (initialize page too).
 printheader($dbh);
 
 my $q;
@@ -139,6 +144,7 @@ if( $current eq 'css' ) {
 	}
 }
 
+# show editing window
 print "<form method='post' action='".$myself."' name='doeditdoc'>\n";
 print "<input type='hidden' name='hostid' value='".$hostid."'>\n";
 print "<input type='hidden' name='cssid' value='".$cssid."'>\n";

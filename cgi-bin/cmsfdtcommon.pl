@@ -1,5 +1,6 @@
 #!/usr/bin/perl
-# CMS FDT 5.1.1 common functions - Jan 2021
+#
+# CMS FDT 5.0 common functions
 
 use strict;
 use DBI;
@@ -9,6 +10,7 @@ use Config::General;
 use Mail::Sendmail;
 use Email::Valid;
 use Digest::MD5 qw(md5_base64);
+#use Shell qw(dig);
 
 my $myself=script_name();
 my @salt = ( '.', '/', 0 .. 9, 'A' .. 'Z', 'a' .. 'z' );
@@ -815,13 +817,15 @@ sub resetpwd
 # it or '' if no config param can be found.
 sub getconfparam
 {
-	my ($paramid,$dbh) = @_;
+    my $paramid = shift;
+    my $dbh = shift;
+    my $default = shift || '';
 	my $q='select value from configuration where paramid=?';
 	my $r=$dbh->prepare($q);
 	my $s=$r->execute($paramid);
 	if( $r->rows == 0 ) {
 		$r->finish();
-		return '';
+		return $default;
 	} else {
 		my ($value)=$r->fetchrow_array();
 		$r->finish();
@@ -973,7 +977,6 @@ sub processthecomment
 	my $c=shift;
 	my $dbh=shift;
 
-
 	my $emoticonsdir=getconfparam('emoticonsdir',$dbh);
 
 	my $emocode=getconfparam('emocode',$dbh);
@@ -1013,15 +1016,12 @@ sub processthecomment
 	$c=~s/ _([^_]+)_ / <u>$1<\/u> /g;
 
 	# last, change CR/LF into <br> or <p>
-	$c=~s/
-
-+/<p>/g;
-	$c=~s/
-/<br>/g;
+	$c=~s/\n+/<p>/g;
+	$c=~s/\n/<br>/g;
 
 	# return the processed comment;
 	return $c;
-
+ 
 }
 
 # un-treat for html stuff
@@ -1169,3 +1169,80 @@ sub isvalidhostname
 		return 1;
 	}
 }
+
+# search for a default text in the text table
+sub getatext2
+{
+    my $textid = shift;
+    my $hostid = shift;
+    my $dbh = shift;
+    my $default = shift;
+    my $deflang = shift || 'en';
+    my $debug = shift || 0;
+    my @lang = shift || ['it','en'];
+
+    my $q='select * from deftexts where hostid=? and textid=?';
+    my $x;
+
+    if( $debug ) {
+        print STDERR "GetAText2: Searching default text for '".$textid."' host '".$hostid."' debug is $debug\n";
+    }
+
+    my $sth=$dbh->prepare($q);
+    $sth->execute($hostid,$textid);
+    if( $sth->rows > 0 ) {
+        if( $debug ) {
+            print STDERR "GetAText2: Searching for the right one ($textid) debug is $debug\n";
+        }       
+
+        my $r=searchtherightone2($sth,$deflang,$debug,@lang);
+        $x=$r->{'content'};
+    } else {
+        $x=$default;
+    }
+    $sth->finish();
+    return $x;
+}
+
+# Search into a dataset of documents with language, the one that matches
+# the preferred language of the user. Otherwise, it returns the default one.
+sub searchtherightone2
+{
+	my $sth = shift;
+    my $deflang = shift;
+    my $debug = shift || 0;
+    my @lang = shift || ['en', 'it'];
+	my $x;
+
+	# ok, we've got something...
+	# see if there is one in the correct language
+	my $r=$sth->fetchall_hashref('language');
+
+	# check if there is a default language, if so, load it as default answer
+	if( $r->{$deflang} ) {
+		$x = $r->{$deflang};
+	} else {
+		# no default language available for this... thing. Get the one that exists.
+		foreach my $key ($r) {
+			for my $id ( keys %{$key} ) {
+				$x = $r->{$id};
+			}
+		}
+	}
+
+	# loop on all user's defined languages and see if there is a match
+	foreach my $l (@lang) {
+		if( $r->{$l}->{'language'} ) {
+			# found a match!
+			if($debug) {
+				print STDERR "Found right language '".$l."' for the document '".$r->{$l}->{'title'}."'\n";
+			}
+			$x=$r->{$l};
+			return $x;
+		}
+	}
+
+	$sth->finish();
+	return $x;
+}
+
