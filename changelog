@@ -1,5 +1,12 @@
 Change log for CMSFDT
 
+2025-01     Lots of fixes, some refactoring
+	    Moved some 'generic' function in the support file (cmsfdtcommon),
+	    changed configuration to use the functions. Swish is fixed but
+	    need to be installed separately. Remove flowplayer because it's
+	    useless, added management for videos (mp4).
+	    Updated CKEditor (sometimes ago).
+	    Removed stuff related to the firewall management.
 2022-08     Added example Apache configuration file, added script to install required Perl modules, commented
             Swish search engine (need to fix it), fixed possible Xss bug in doc.pl, fixed "bug" for Perl 5.25 that
             doesn't have '.' in INC, added Firewall table and management.
